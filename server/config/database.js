@@ -5,7 +5,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = path.join(__dirname, '../../database.json');
+// Use env var on Vercel, fallback to api/database.json (for serverless packaging)
+const DB_PATH = process.env.DATABASE_PATH
+  ? path.join(__dirname, '..', '..', process.env.DATABASE_PATH)
+  : path.join(__dirname, '..', '..', 'api', 'database.json');
 
 let data = null;
 

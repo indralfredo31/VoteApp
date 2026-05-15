@@ -12,6 +12,9 @@
     { "src": "/template-pemilih.csv", "dest": "api/index.js" },
     { "src": "/(.*)", "dest": "api/index.js" }
   ],
+  "env": {
+    "DATABASE_PATH": "database.json"
+  },
   "buildCommand": "cd client && npm install && npm run build && cp public/template-pemilih.csv ../api/public/ 2>/dev/null || true",
   "installCommand": "npm install && cd client && npm install"
 }
