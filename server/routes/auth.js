@@ -3,13 +3,13 @@
  */
 const express = require('express');
 const router = express.Router();
-const { getUserByNim, adminLogin } = require('../config/database');
+const db = require('../config/database');
 
 /**
  * POST /api/auth/login
  * User login with NIM and DOB
  */
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   try {
     const { nim, dob } = req.body;
 
@@ -20,7 +20,6 @@ router.post('/login', (req, res) => {
       });
     }
 
-    // Parse DDMMYYYY format (e.g. "15012003" → "15-01-2003")
     let normalizedDob = dob;
     if (/^\d{8}$/.test(dob)) {
       const day = dob.slice(0, 2);
@@ -29,23 +28,16 @@ router.post('/login', (req, res) => {
       normalizedDob = `${day}-${month}-${year}`;
     }
 
-    const user = getUserByNim(nim);
+    const user = await db.getUserByNim(nim);
 
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'NIM atau tanggal lahir salah'
-      });
+      return res.status(401).json({ success: false, message: 'NIM atau tanggal lahir salah' });
     }
 
     if (user.dob !== normalizedDob) {
-      return res.status(401).json({
-        success: false,
-        message: 'NIM atau tanggal lahir salah'
-      });
+      return res.status(401).json({ success: false, message: 'NIM atau tanggal lahir salah' });
     }
 
-    // Set session
     req.session.user = {
       id: user.id,
       nim: user.nim,
@@ -55,34 +47,21 @@ router.post('/login', (req, res) => {
       votedFor: user.voted_for || null
     };
 
-    res.json({
-      success: true,
-      data: req.session.user
-    });
+    res.json({ success: true, data: req.session.user });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ success: false, message: 'Terjadi kesalahan saat login' });
   }
 });
 
-/**
- * POST /api/auth/logout
- * User logout
- */
 router.post('/logout', (req, res) => {
   req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ success: false, message: 'Gagal logout' });
-    }
+    if (err) return res.status(500).json({ success: false, message: 'Gagal logout' });
     res.clearCookie('connect.sid');
     res.json({ success: true, message: 'Logout berhasil' });
   });
 });
 
-/**
- * GET /api/auth/me
- * Get current user
- */
 router.get('/me', (req, res) => {
   if (!req.session.user) {
     return res.status(401).json({ success: false, message: 'Not authenticated' });
@@ -90,51 +69,27 @@ router.get('/me', (req, res) => {
   res.json({ success: true, data: req.session.user });
 });
 
-/**
- * POST /api/auth/admin-login
- * Admin login
- */
-router.post('/admin-login', (req, res) => {
+router.post('/admin-login', async (req, res) => {
   try {
     const { username, password } = req.body;
-
     if (!username || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Username dan password harus diisi'
-      });
+      return res.status(400).json({ success: false, message: 'Username dan password harus diisi' });
     }
-
-    const isValid = adminLogin(username, password);
-
+    const isValid = await db.adminLogin(username, password);
     if (!isValid) {
-      return res.status(401).json({
-        success: false,
-        message: 'Username atau password salah'
-      });
+      return res.status(401).json({ success: false, message: 'Username atau password salah' });
     }
-
     req.session.admin = { username };
-
-    res.json({
-      success: true,
-      data: { username }
-    });
+    res.json({ success: true, data: { username } });
   } catch (error) {
     console.error('Admin login error:', error);
     res.status(500).json({ success: false, message: 'Terjadi kesalahan saat login' });
   }
 });
 
-/**
- * POST /api/auth/admin-logout
- * Admin logout
- */
 router.post('/admin-logout', (req, res) => {
   req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ success: false, message: 'Gagal logout' });
-    }
+    if (err) return res.status(500).json({ success: false, message: 'Gagal logout' });
     res.clearCookie('connect.sid');
     res.json({ success: true, message: 'Logout berhasil' });
   });

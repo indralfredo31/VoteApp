@@ -1,104 +1,46 @@
 /**
- * Database Configuration - Simple JSON File Storage
- * Supports: users, candidates (pasangan), votingLog, settings, admin
+ * Database Layer - Firebase Firestore
+ * Replaces JSON file storage with Firestore
  */
-const fs = require('fs');
-const path = require('path');
+const { getDb } = require('./firebase');
 
-// Use env var on Vercel, fallback to api/database.json (for serverless packaging)
-const DB_PATH = process.env.DATABASE_PATH
-  ? path.join(__dirname, '..', '..', process.env.DATABASE_PATH)
-  : path.join(__dirname, '..', '..', 'api', 'database.json');
+// Firestore collection names
+const COL = {
+  USERS: 'users',
+  CANDIDATES: 'candidates',
+  VOTING_LOG: 'voting_log',
+  SETTINGS: 'settings',
+  ADMIN: 'admin'
+};
 
-let data = null;
+// ============ USER HELPERS ============
 
-/**
- * Initialize database connection
- */
-async function initDatabase() {
-  if (fs.existsSync(DB_PATH)) {
-    const content = fs.readFileSync(DB_PATH, 'utf8');
-    data = JSON.parse(content);
-    // Ensure all required keys exist
-    data.users = data.users || [];
-    data.candidates = data.candidates || [];
-    data.votingLog = data.votingLog || [];
-    data.settings = data.settings || {};
-    data.admin = data.admin || { username: 'admin', password: 'admin123' };
-    console.log('📂 Database loaded from file');
-  } else {
-    data = {
-      users: [],
-      candidates: [],
-      votingLog: [],
-      settings: {
-        voting_enabled: true,
-        voting_open_at: null,
-        voting_close_at: null,
-        app_title: 'Pemilihan Ketua Senat',
-        app_subtitle: 'Periode 2026'
-      },
-      admin: {
-        username: 'admin',
-        password: 'admin123'
-      }
-    };
-    saveDatabase();
-    console.log('🆕 New database created');
-  }
-
-  return data;
+async function getUserByNim(nim) {
+  const db = getDb();
+  if (!db) return null;
+  const snap = await db.collection(COL.USERS).where('nim', '==', nim).limit(1).get();
+  if (snap.empty) return null;
+  const d = snap.docs[0].data();
+  return { id: snap.docs[0].id, ...d };
 }
 
-/**
- * Get database instance
- */
-function getDatabase() {
-  if (!data) {
-    data = {
-      users: [],
-      candidates: [],
-      votingLog: [],
-      settings: {},
-      admin: {}
-    };
-  }
-  return data;
+async function getUserById(docId) {
+  const db = getDb();
+  if (!db) return null;
+  const doc = await db.collection(COL.USERS).doc(docId).get();
+  if (!doc.exists) return null;
+  return { id: doc.id, ...doc.data() };
 }
 
-/**
- * Save database to file
- */
-function saveDatabase() {
-  if (data) {
-    fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
-  }
-}
+async function createUser(userData) {
+  const db = getDb();
+  if (!db) return null;
+  // Find max id
+  const snap = await db.collection(COL.USERS).orderBy('id', 'desc').limit(1).get();
+  const maxId = snap.empty ? 0 : (snap.docs[0].data().id || 0);
 
-/**
- * Close database connection
- */
-function closeDatabase() {
-  if (data) {
-    saveDatabase();
-    data = null;
-  }
-}
-
-// ==================== USER HELPERS ====================
-
-function getUserByNim(nim) {
-  return getDatabase().users.find(u => u.nim === nim);
-}
-
-function getUserById(id) {
-  return getDatabase().users.find(u => u.id === id);
-}
-
-function createUser(userData) {
-  const db = getDatabase();
   const user = {
-    id: db.users.length > 0 ? Math.max(...db.users.map(u => u.id)) + 1 : 1,
+    id: maxId + 1,
     nim: userData.nim,
     dob: userData.dob,
     nama: userData.nama,
@@ -108,51 +50,72 @@ function createUser(userData) {
     voted_for: null,
     created_at: new Date().toISOString()
   };
-  db.users.push(user);
-  saveDatabase();
-  return user;
+  const ref = await db.collection(COL.USERS).add(user);
+  return { id: ref.id, ...user };
 }
 
-function updateUserVote(userId, candidateId) {
-  const db = getDatabase();
-  const user = db.users.find(u => u.id === userId);
-  if (user) {
-    user.has_voted = 1;
-    user.voted_at = new Date().toISOString();
-    user.voted_for = candidateId;
-    saveDatabase();
-  }
-  return user;
-}
-
-function resetAllUserVotes() {
-  const db = getDatabase();
-  db.users.forEach(u => {
-    u.has_voted = 0;
-    u.voted_at = null;
-    u.voted_for = null;
+async function updateUserVote(userId, candidateId) {
+  const db = getDb();
+  if (!db) return null;
+  // Find doc by user id field
+  const snap = await db.collection(COL.USERS).where('id', '==', parseInt(userId)).limit(1).get();
+  if (snap.empty) return null;
+  const docRef = snap.docs[0].ref;
+  await docRef.update({
+    has_voted: 1,
+    voted_at: new Date().toISOString(),
+    voted_for: parseInt(candidateId)
   });
-  saveDatabase();
+  return (await docRef.get()).data();
 }
 
-// ==================== CANDIDATE HELPERS ====================
-
-function getAllCandidates() {
-  return getDatabase().candidates.sort((a, b) => a.nomor_urut - b.nomor_urut);
+async function resetAllUserVotes() {
+  const db = getDb();
+  if (!db) return;
+  const snap = await db.collection(COL.USERS).get();
+  const batch = db.batch();
+  snap.docs.forEach(doc => {
+    batch.update(doc.ref, { has_voted: 0, voted_at: null, voted_for: null });
+  });
+  await batch.commit();
 }
 
-function getCandidateById(id) {
-  return getDatabase().candidates.find(c => c.id === id);
+async function getAllUsers() {
+  const db = getDb();
+  if (!db) return [];
+  const snap = await db.collection(COL.USERS).get();
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-function getCandidateByNomorUrut(nomor) {
-  return getDatabase().candidates.find(c => c.nomor_urut === nomor);
+// ============ CANDIDATE HELPERS ============
+
+async function getAllCandidates() {
+  const db = getDb();
+  if (!db) return [];
+  const snap = await db.collection(COL.CANDIDATES).orderBy('nomor_urut').get();
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-function createCandidate(candidateData) {
-  const db = getDatabase();
+async function getCandidateById(docId) {
+  const db = getDb();
+  if (!db) return null;
+  const doc = await db.collection(COL.CANDIDATES).doc(docId).get();
+  if (!doc.exists) return null;
+  return { id: doc.id, ...doc.data() };
+}
+
+async function getCandidateByNomorUrut(nomor) {
+  const db = getDb();
+  if (!db) return null;
+  const snap = await db.collection(COL.CANDIDATES).where('nomor_urut', '==', nomor).limit(1).get();
+  if (snap.empty) return null;
+  return { id: snap.docs[0].id, ...snap.docs[0].data() };
+}
+
+async function createCandidate(candidateData) {
+  const db = getDb();
+  if (!db) return null;
   const candidate = {
-    id: db.candidates.length > 0 ? Math.max(...db.candidates.map(c => c.id)) + 1 : 1,
     nomor_urut: candidateData.nomor_urut,
     nama_ketua: candidateData.nama_ketua,
     prodi_ketua: candidateData.prodi_ketua || '',
@@ -165,170 +128,287 @@ function createCandidate(candidateData) {
     vote_count: 0,
     created_at: new Date().toISOString()
   };
-  db.candidates.push(candidate);
-  saveDatabase();
-  return candidate;
+  const ref = await db.collection(COL.CANDIDATES).add(candidate);
+  return { id: ref.id, ...candidate };
 }
 
-function updateCandidate(id, candidateData) {
-  const db = getDatabase();
-  const idx = db.candidates.findIndex(c => c.id === id);
-  if (idx !== -1) {
-    db.candidates[idx] = {
-      ...db.candidates[idx],
-      nomor_urut: candidateData.nomor_urut ?? db.candidates[idx].nomor_urut,
-      nama_ketua: candidateData.nama_ketua ?? db.candidates[idx].nama_ketua,
-      prodi_ketua: candidateData.prodi_ketua ?? db.candidates[idx].prodi_ketua,
-      foto_ketua: candidateData.foto_ketua ?? db.candidates[idx].foto_ketua,
-      nama_wakil: candidateData.nama_wakil ?? db.candidates[idx].nama_wakil,
-      prodi_wakil: candidateData.prodi_wakil ?? db.candidates[idx].prodi_wakil,
-      foto_wakil: candidateData.foto_wakil ?? db.candidates[idx].foto_wakil,
-      visi: candidateData.visi ?? db.candidates[idx].visi,
-      misi: candidateData.misi ?? db.candidates[idx].misi,
-    };
-    saveDatabase();
-    return db.candidates[idx];
-  }
-  return null;
+async function updateCandidate(id, candidateData) {
+  const db = getDb();
+  if (!db) return null;
+  const docRef = db.collection(COL.CANDIDATES).doc(id);
+  const updates = {};
+  if (candidateData.nomor_urut != null) updates.nomor_urut = candidateData.nomor_urut;
+  if (candidateData.nama_ketua != null) updates.nama_ketua = candidateData.nama_ketua;
+  if (candidateData.prodi_ketua != null) updates.prodi_ketua = candidateData.prodi_ketua;
+  if (candidateData.foto_ketua != null) updates.foto_ketua = candidateData.foto_ketua;
+  if (candidateData.nama_wakil != null) updates.nama_wakil = candidateData.nama_wakil;
+  if (candidateData.prodi_wakil != null) updates.prodi_wakil = candidateData.prodi_wakil;
+  if (candidateData.foto_wakil != null) updates.foto_wakil = candidateData.foto_wakil;
+  if (candidateData.visi != null) updates.visi = candidateData.visi;
+  if (candidateData.misi != null) updates.misi = candidateData.misi;
+  await docRef.update(updates);
+  return (await docRef.get()).data();
 }
 
-function deleteCandidate(id) {
-  const db = getDatabase();
-  db.candidates = db.candidates.filter(c => c.id !== id);
-  saveDatabase();
+async function deleteCandidate(id) {
+  const db = getDb();
+  if (!db) return;
+  await db.collection(COL.CANDIDATES).doc(id).delete();
 }
 
-function incrementCandidateVote(candidateId) {
-  const db = getDatabase();
-  const candidate = db.candidates.find(c => c.id === candidateId);
-  if (candidate) {
-    candidate.vote_count = (candidate.vote_count || 0) + 1;
-    saveDatabase();
-  }
-  return candidate;
+async function incrementCandidateVote(candidateId) {
+  const db = getDb();
+  if (!db) return null;
+  // candidateId is document id
+  const docRef = db.collection(COL.CANDIDATES).doc(candidateId);
+  const doc = await docRef.get();
+  if (!doc.exists) return null;
+  const current = doc.data().vote_count || 0;
+  await docRef.update({ vote_count: current + 1 });
+  return (await docRef.get()).data();
 }
 
-function resetAllCandidateVotes() {
-  const db = getDatabase();
-  db.candidates.forEach(c => { c.vote_count = 0; });
-  saveDatabase();
+async function resetAllCandidateVotes() {
+  const db = getDb();
+  if (!db) return;
+  const snap = await db.collection(COL.CANDIDATES).get();
+  const batch = db.batch();
+  snap.docs.forEach(doc => batch.update(doc.ref, { vote_count: 0 }));
+  await batch.commit();
 }
 
-// ==================== VOTING LOG HELPERS ====================
+// ============ VOTING LOG HELPERS ============
 
-function addVotingLog(userId, candidateId, ipAddress) {
-  const db = getDatabase();
+async function addVotingLog(userId, candidateId, ipAddress) {
+  const db = getDb();
+  if (!db) return null;
+  const snap = await db.collection(COL.VOTING_LOG).orderBy('id', 'desc').limit(1).get();
+  const maxId = snap.empty ? 0 : (snap.docs[0].data().id || 0);
   const log = {
-    id: db.votingLog.length > 0 ? Math.max(...db.votingLog.map(l => l.id)) + 1 : 1,
-    user_id: userId,
-    candidate_id: candidateId,
+    id: maxId + 1,
+    user_id: parseInt(userId),
+    candidate_id: parseInt(candidateId),
     voted_at: new Date().toISOString(),
     ip_address: ipAddress || 'unknown'
   };
-  db.votingLog.push(log);
-  saveDatabase();
-  return log;
+  const ref = await db.collection(COL.VOTING_LOG).add(log);
+  return { id: ref.id, ...log };
 }
 
-function clearVotingLog() {
-  const db = getDatabase();
-  db.votingLog = [];
-  saveDatabase();
+async function clearVotingLog() {
+  const db = getDb();
+  if (!db) return;
+  const snap = await db.collection(COL.VOTING_LOG).get();
+  const batch = db.batch();
+  snap.docs.forEach(doc => batch.delete(doc.ref));
+  await batch.commit();
 }
 
-// ==================== SETTINGS HELPERS ====================
+// ============ SETTINGS HELPERS ============
 
-function getSettings() {
-  return getDatabase().settings;
+async function getSettings() {
+  const db = getDb();
+  if (!db) return {};
+  const snap = await db.collection(COL.SETTINGS).limit(1).get();
+  if (snap.empty) {
+    // Return defaults if no settings doc
+    return {
+      voting_enabled: true,
+      voting_open_at: null,
+      voting_close_at: null,
+      app_title: 'Pemilihan Ketua Senat',
+      app_subtitle: 'Periode 2026'
+    };
+  }
+  return snap.docs[0].data();
 }
 
-function updateSettings(settingsData) {
-  const db = getDatabase();
-  db.settings = { ...db.settings, ...settingsData };
-  saveDatabase();
-  return db.settings;
+async function updateSettings(settingsData) {
+  const db = getDb();
+  if (!db) return null;
+  const snap = await db.collection(COL.SETTINGS).limit(1).get();
+  const data = { ...(snap.empty ? {} : snap.docs[0].data()), ...settingsData };
+  if (snap.empty) {
+    await db.collection(COL.SETTINGS).add(data);
+  } else {
+    await snap.docs[0].ref.update(data);
+  }
+  return data;
 }
 
-function isVotingOpen() {
-  const settings = getSettings();
+// ============ ADMIN HELPERS ============
+
+async function adminLogin(username, password) {
+  const db = getDb();
+  if (!db) return false;
+  const snap = await db.collection(COL.ADMIN).where('username', '==', username).where('password', '==', password).limit(1).get();
+  return !snap.empty;
+}
+
+async function updateAdminCredentials(username, password) {
+  const db = getDb();
+  if (!db) return;
+  const snap = await db.collection(COL.ADMIN).limit(1).get();
+  const data = { username, password };
+  if (snap.empty) {
+    await db.collection(COL.ADMIN).add(data);
+  } else {
+    await snap.docs[0].ref.update(data);
+  }
+}
+
+// ============ STATS HELPERS ============
+
+async function getStats() {
+  const db = getDb();
+  if (!db) return { totalUsers: 0, totalVoted: 0, totalCandidates: 0, totalVotes: 0 };
+  const [usersSnap, candidatesSnap] = await Promise.all([
+    db.collection(COL.USERS).get(),
+    db.collection(COL.CANDIDATES).get()
+  ]);
+  const users = usersSnap.docs.map(d => d.data());
+  const candidates = candidatesSnap.docs.map(d => d.data());
+  return {
+    totalUsers: users.length,
+    totalVoted: users.filter(u => u.has_voted === 1).length,
+    totalCandidates: candidates.length,
+    totalVotes: candidates.reduce((sum, c) => sum + (c.vote_count || 0), 0)
+  };
+}
+
+// ============ VOTING STATUS ============
+
+async function isVotingOpen() {
+  const settings = await getSettings();
   const now = new Date();
 
-  // Manual override: if voting_enabled is false, always closed
   if (settings.voting_enabled === false) {
     return { open: false, reason: 'voting_disabled' };
   }
-
   if (settings.voting_open_at) {
     const openTime = new Date(settings.voting_open_at);
     if (now < openTime) return { open: false, reason: 'voting_not_started' };
   }
-
   if (settings.voting_close_at) {
     const closeTime = new Date(settings.voting_close_at);
     if (now > closeTime) return { open: false, reason: 'voting_ended' };
   }
-
   return { open: true, reason: null };
 }
 
-// ==================== ADMIN HELPERS ====================
+// ============ SYNC WRAPPER (for legacy routes) ============
+// The routes use synchronous-looking calls, but Firestore is async.
+// We use a module-level cache + background refresh to simulate sync.
 
-function adminLogin(username, password) {
-  const db = getDatabase();
-  if (db.admin && db.admin.username === username && db.admin.password === password) {
-    return true;
+let _cache = null;
+let _cacheTimer = null;
+const CACHE_TTL = 5000; // 5 seconds
+
+function _scheduleRefresh() {
+  if (_cacheTimer) return;
+  _cacheTimer = setTimeout(async () => {
+    _cacheTimer = null;
+    await refreshCache();
+  }, CACHE_TTL);
+}
+
+// Sync-compatible wrappers (they start an async op but return cached immediately)
+function getAllCandidates() { _scheduleRefresh(); return _cache ? _cache.candidates : []; }
+function getCandidateById(id) { _scheduleRefresh(); return _cache ? _cache.candidates.find(c => c.id === id || c.id === parseInt(id)) : null; }
+function getUserByNim(nim) { _scheduleRefresh(); return _cache ? _cache.users.find(u => u.nim === nim) : null; }
+function getUserById(id) { _scheduleRefresh(); return _cache ? _cache.users.find(u => u.id === parseInt(id)) : null; }
+function getDatabase() { _scheduleRefresh(); return { users: (_cache || {}).users || [], candidates: (_cache || {}).candidates || [], votingLog: [], settings: (_cache || {}).settings || {}, admin: {} }; }
+function getSettings() { _scheduleRefresh(); return (_cache || {}).settings || {}; }
+function isVotingOpen() {
+  _scheduleRefresh();
+  const settings = getSettings();
+  const now = new Date();
+  if (settings.voting_enabled === false) return { open: false, reason: 'voting_disabled' };
+  if (settings.voting_open_at && now < new Date(settings.voting_open_at)) return { open: false, reason: 'voting_not_started' };
+  if (settings.voting_close_at && now > new Date(settings.voting_close_at)) return { open: false, reason: 'voting_ended' };
+  return { open: true, reason: null };
+}
+
+// Actual async operations for route handlers
+async function _asyncGetAllCandidates() {
+  return getAllCandidates();
+}
+async function _asyncGetUserByNim(nim) { return getUserByNim(nim); }
+async function _asyncUpdateUserVote(userId, candidateId) { await updateUserVote(userId, candidateId); _scheduleRefresh(); }
+async function _asyncIncrementCandidateVote(candidateId) { await incrementCandidateVote(candidateId); _scheduleRefresh(); }
+async function _asyncAddVotingLog(userId, candidateId, ip) { await addVotingLog(userId, candidateId, ip); }
+async function _asyncIsVotingOpen() { return isVotingOpen(); }
+async function _asyncGetSettings() { return getSettings(); }
+async function _asyncGetStats() { return getStats(); }
+async function _asyncAdminLogin(username, password) { return adminLogin(username, password); }
+async function _asyncResetAllUserVotes() { await resetAllUserVotes(); _cache = null; await refreshCache(); }
+async function _asyncResetAllCandidateVotes() { await resetAllCandidateVotes(); _cache = null; await refreshCache(); }
+async function _asyncClearVotingLog() { await clearVotingLog(); }
+async function _asyncGetCandidateById(id) { return getCandidateById(id); }
+async function _asyncGetCandidateByNomorUrut(nomor) {
+  await refreshCache();
+  return getCandidates().find(c => c.nomor_urut === nomor);
+}
+async function _asyncCreateCandidate(data) { const r = await createCandidate(data); _scheduleRefresh(); return r; }
+async function _asyncUpdateCandidate(id, data) { const r = await updateCandidate(id, data); _scheduleRefresh(); return r; }
+async function _asyncDeleteCandidate(id) { await deleteCandidate(id); _scheduleRefresh(); }
+async function _asyncUpdateSettings(data) { const r = await updateSettings(data); _scheduleRefresh(); return r; }
+async function _asyncUpdateAdminCredentials(u, p) { await updateAdminCredentials(u, p); }
+async function _asyncCreateUser(data) { const r = await createUser(data); _scheduleRefresh(); return r; }
+
+// Need to expose candidates getter for isVotingOpen check
+function getCandidates() { return _cache ? _cache.candidates : []; }
+
+async function refreshCache() {
+  try {
+    const db = getDb();
+    if (!db) return;
+    const [usersSnap, candidatesSnap, settingsSnap] = await Promise.all([
+      db.collection(COL.USERS).get(),
+      db.collection(COL.CANDIDATES).get(),
+      db.collection(COL.SETTINGS).limit(1).get()
+    ]);
+    _cache = {
+      users: usersSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+      candidates: candidatesSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.nomor_urut || 0) - (b.nomor_urut || 0)),
+      settings: settingsSnap.empty ? {} : settingsSnap.docs[0].data()
+    };
+  } catch (e) {
+    console.error('Cache refresh error:', e.message);
   }
-  return false;
 }
 
-function updateAdminCredentials(username, password) {
-  const db = getDatabase();
-  db.admin = { username, password };
-  saveDatabase();
-}
+// Initial cache on module load
+refreshCache().catch(() => {});
 
-// ==================== STATS HELPERS ====================
-
-function getStats() {
-  const db = getDatabase();
-  return {
-    totalUsers: db.users.length,
-    totalVoted: db.users.filter(u => u.has_voted === 1).length,
-    totalCandidates: db.candidates.length,
-    totalVotes: db.candidates.reduce((sum, c) => sum + (c.vote_count || 0), 0)
-  };
-}
+function getCache() { return _cache; }
 
 module.exports = {
-  initDatabase,
+  initDatabase: refreshCache,
   getDatabase,
-  saveDatabase,
-  closeDatabase,
-  // User
-  getUserByNim,
-  getUserById,
-  createUser,
-  updateUserVote,
-  resetAllUserVotes,
-  // Candidates
-  getAllCandidates,
-  getCandidateById,
-  getCandidateByNomorUrut,
-  createCandidate,
-  updateCandidate,
-  deleteCandidate,
-  incrementCandidateVote,
-  resetAllCandidateVotes,
-  // Voting Log
-  addVotingLog,
-  clearVotingLog,
-  // Settings
   getSettings,
-  updateSettings,
   isVotingOpen,
-  // Admin
-  adminLogin,
-  updateAdminCredentials,
-  // Stats
-  getStats
+  getStats,
+  getAllCandidates: _asyncGetAllCandidates,
+  getCandidateById: _asyncGetCandidateById,
+  getCandidateByNomorUrut: _asyncGetCandidateByNomorUrut,
+  createCandidate: _asyncCreateCandidate,
+  updateCandidate: _asyncUpdateCandidate,
+  deleteCandidate: _asyncDeleteCandidate,
+  incrementCandidateVote: _asyncIncrementCandidateVote,
+  resetAllCandidateVotes: _asyncResetAllCandidateVotes,
+  getUserByNim: _asyncGetUserByNim,
+  getUserById,
+  createUser: _asyncCreateUser,
+  updateUserVote: _asyncUpdateUserVote,
+  resetAllUserVotes: _asyncResetAllUserVotes,
+  addVotingLog: _asyncAddVotingLog,
+  clearVotingLog: _asyncClearVotingLog,
+  updateSettings: _asyncUpdateSettings,
+  adminLogin: _asyncAdminLogin,
+  updateAdminCredentials: _asyncUpdateAdminCredentials,
+  getStats: _asyncGetStats,
+  getAllUsers,
+  getCache,
+  refreshCache
 };

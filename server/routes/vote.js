@@ -3,23 +3,11 @@
  */
 const express = require('express');
 const router = express.Router();
-const {
-  getAllCandidates,
-  getCandidateById,
-  updateUserVote,
-  incrementCandidateVote,
-  addVotingLog,
-  isVotingOpen,
-  getUserById
-} = require('../config/database');
+const db = require('../config/database');
 
-/**
- * GET /api/voting/candidates
- * Get all candidates (pasangan)
- */
-router.get('/candidates', (req, res) => {
+router.get('/candidates', async (req, res) => {
   try {
-    const candidates = getAllCandidates();
+    const candidates = await db.getAllCandidates();
     res.json({ success: true, data: candidates });
   } catch (error) {
     console.error('Get candidates error:', error);
@@ -27,11 +15,7 @@ router.get('/candidates', (req, res) => {
   }
 });
 
-/**
- * POST /api/voting/submit
- * Submit vote for a candidate
- */
-router.post('/submit', (req, res) => {
+router.post('/submit', async (req, res) => {
   try {
     if (!req.session.user) {
       return res.status(401).json({ success: false, message: 'Silakan login terlebih dahulu' });
@@ -44,45 +28,31 @@ router.post('/submit', (req, res) => {
       return res.status(400).json({ success: false, message: 'ID kandidat harus diisi' });
     }
 
-    // Check voting window
-    const votingStatus = isVotingOpen();
+    const votingStatus = await db.isVotingOpen();
     if (!votingStatus.open) {
       const messages = {
         voting_disabled: 'Voting ditutup secara manual',
         voting_not_started: 'Voting belum dibuka',
         voting_ended: 'Voting sudah ditutup'
       };
-      return res.status(400).json({
-        success: false,
-        message: messages[votingStatus.reason] || 'Voting tidak tersedia'
-      });
+      return res.status(400).json({ success: false, message: messages[votingStatus.reason] || 'Voting tidak tersedia' });
     }
 
-    // Check if user already voted
     if (user.hasVoted) {
-      return res.status(400).json({
-        success: false,
-        message: 'Anda sudah melakukan voting'
-      });
+      return res.status(400).json({ success: false, message: 'Anda sudah melakukan voting' });
     }
 
-    // Verify candidate exists
-    const candidate = getCandidateById(candidateId);
+    const candidate = await db.getCandidateById(candidateId);
     if (!candidate) {
       return res.status(404).json({ success: false, message: 'Kandidat tidak ditemukan' });
     }
 
-    // Update user's voted status
-    updateUserVote(user.id, candidateId);
-
-    // Increment candidate vote count
-    incrementCandidateVote(candidateId);
-
-    // Add to voting log
+    // Use Firestore document ID
+    await db.updateUserVote(user.id, candidateId);
+    await db.incrementCandidateVote(candidateId);
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
-    addVotingLog(user.id, candidateId, ip);
+    await db.addVotingLog(user.id, candidateId, ip);
 
-    // Update session
     req.session.user.hasVoted = true;
     req.session.user.votedFor = candidateId;
 
@@ -100,18 +70,10 @@ router.post('/submit', (req, res) => {
   }
 });
 
-/**
- * GET /api/voting/results
- * Get voting results (public)
- */
-router.get('/results', (req, res) => {
+router.get('/results', async (req, res) => {
   try {
-    const candidates = getAllCandidates();
-
-    // Calculate total votes
+    const candidates = await db.getAllCandidates();
     const totalVotes = candidates.reduce((sum, c) => sum + (c.vote_count || 0), 0);
-
-    // Calculate percentages
     const results = candidates.map(c => ({
       id: c.id,
       nomor_urut: c.nomor_urut,
@@ -121,17 +83,14 @@ router.get('/results', (req, res) => {
       percentage: totalVotes > 0 ? Math.round((c.vote_count / totalVotes) * 100) : 0
     })).sort((a, b) => b.vote_count - a.vote_count);
 
-    // Get total voters from users
-    const db = require('../config/database').getDatabase();
-    const totalVoters = db.users ? db.users.length : 0;
-
+    const stats = await db.getStats();
     res.json({
       success: true,
       data: {
         results,
         totalVotes,
-        totalVoters,
-        participationRate: totalVoters > 0 ? Math.round((totalVotes / totalVoters) * 100) : 0
+        totalVoters: stats.totalUsers,
+        participationRate: stats.totalUsers > 0 ? Math.round((totalVotes / stats.totalUsers) * 100) : 0
       }
     });
   } catch (error) {
@@ -140,30 +99,23 @@ router.get('/results', (req, res) => {
   }
 });
 
-/**
- * GET /api/voting/status
- * Get voting open/close status (public)
- */
-router.get('/status', (req, res) => {
+router.get('/status', async (req, res) => {
   try {
-    const { open, reason } = isVotingOpen();
-    const settings = require('../config/database').getSettings();
-
+    const [votingStatus, settings] = await Promise.all([db.isVotingOpen(), db.getSettings()]);
     const messages = {
       voting_disabled: 'Voting ditutup secara manual',
       voting_not_started: 'Voting belum dibuka',
       voting_ended: 'Voting sudah ditutup',
       null: 'Voting sedang dibuka'
     };
-
     res.json({
       success: true,
       data: {
-        isOpen: open,
+        isOpen: votingStatus.open,
         votingEnabled: settings.voting_enabled !== false,
         openAt: settings.voting_open_at || null,
         closeAt: settings.voting_close_at || null,
-        message: messages[reason] || 'Voting sedang dibuka'
+        message: messages[votingStatus.reason] || 'Voting sedang dibuka'
       }
     });
   } catch (error) {
