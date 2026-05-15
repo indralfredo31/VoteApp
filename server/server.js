@@ -49,6 +49,12 @@ if (!fs.existsSync(uploadsDir)) {
 }
 app.use('/uploads', express.static(uploadsDir));
 
+// Serve frontend static files (SPA)
+const clientDistDir = path.join(__dirname, '../client/dist');
+if (fs.existsSync(clientDistDir)) {
+  app.use(express.static(clientDistDir));
+}
+
 // Serve CSV template for voter import
 const templatePath = path.join(__dirname, '../client/public/template-pemilih.csv');
 if (fs.existsSync(templatePath)) {
@@ -68,6 +74,13 @@ app.use('/api/admin', adminRoutes);
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'VoteApp server is running', timestamp: new Date().toISOString() });
 });
+
+// Serve SPA for all non-API routes (must be last route)
+if (fs.existsSync(clientDistDir)) {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(clientDistDir, 'index.html'));
+  });
+}
 
 // Error handling middleware
 app.use((err, req, res, next) => {

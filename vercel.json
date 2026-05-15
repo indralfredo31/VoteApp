@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "server/server.js" },
+    { "src": "/uploads/(.*)", "dest": "server/server.js" },
+    { "src": "/template-pemilih.csv", "dest": "server/server.js" },
+    { "src": "/(.*)", "dest": "server/server.js" }
+  ],
+  "buildCommand": "cd client && npm install && npm run build",
+  "installCommand": "npm install && cd client && npm install"
+}

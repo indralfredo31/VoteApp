@@ -4,9 +4,11 @@
   "description": "Sistem Voting Ketua Senat Kampus",
   "main": "server/server.js",
   "scripts": {
+    "build": "cd client && npm install && npm run build",
     "start": "node server/server.js",
     "dev": "nodemon server/server.js",
-    "seed": "node server/seed.js"
+    "seed": "node server/seed.js",
+    "install:all": "npm install && cd client && npm install"
   },
   "dependencies": {
     "cors": "^2.8.5",

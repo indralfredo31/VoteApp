@@ -8,7 +8,13 @@
       "Bash(curl -s -b /tmp/test-cookies.txt http://localhost:5177/api/voting/status)",
       "Bash(curl -s -b /tmp/test-cookies.txt http://localhost:5177/api/voting/candidates)",
       "Bash(curl -sv \"http://localhost:5177/\")",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Skill(vercel:status)",
+      "Skill(vercel:status:*)",
+      "Bash(vercel ls *)"
+    ],
+    "additionalDirectories": [
+      "/Users/indralfredo/Documents/voteapp"
     ]
   }
 }
