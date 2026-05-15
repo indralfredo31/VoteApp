@@ -12,7 +12,7 @@ export default function AdminCandidates() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -114,7 +114,7 @@ export default function AdminCandidates() {
     }
   };
 
-  const handleDelete = async (id: number, name: string) => {
+  const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Yakin hapus "${name}"?`)) return;
     try {
       const response = await adminApi.deleteCandidate(id);

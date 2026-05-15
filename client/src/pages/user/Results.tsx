@@ -5,21 +5,28 @@ import Navbar from '../../components/layout/Navbar';
 import ProgressBar from '../../components/animations/ProgressBar';
 import StaggerReveal from '../../components/animations/StaggerReveal';
 import { votingApi } from '../../api/votingApi';
+import { useVotingStore } from '../../store/votingStore';
 import type { VotingStats } from '../../types';
 
 gsap.registerPlugin(ScrollTrigger);
 
+const REFRESH_INTERVAL = 3000; // 3 seconds for real-time feel
+
 export default function Results() {
   const [stats, setStats] = useState<VotingStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const statsRef = useRef<HTMLDivElement>(null);
+  const { results: storeResults } = useVotingStore();
 
+  // Initial load
   useEffect(() => {
     const loadResults = async () => {
       try {
         const response = await votingApi.getResults();
         if (response.success && response.data) {
           setStats(response.data);
+          setLastUpdate(new Date());
         }
       } catch (err) {
         console.error('Failed to load results:', err);
@@ -30,6 +37,32 @@ export default function Results() {
 
     loadResults();
   }, []);
+
+  // Real-time polling: refresh results every 3 seconds
+  useEffect(() => {
+    const pollResults = async () => {
+      try {
+        const response = await votingApi.getResults();
+        if (response.success && response.data) {
+          setStats(response.data);
+          setLastUpdate(new Date());
+        }
+      } catch (err) {
+        // Silent fail on polling
+      }
+    };
+
+    const interval = setInterval(pollResults, REFRESH_INTERVAL);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Also sync with store results (updated from Dashboard after vote)
+  useEffect(() => {
+    if (storeResults && (!stats || JSON.stringify(storeResults) !== JSON.stringify(stats))) {
+      setStats(storeResults);
+      setLastUpdate(new Date());
+    }
+  }, [storeResults]);
 
   // Count up animation for total votes
   useEffect(() => {
@@ -170,9 +203,13 @@ export default function Results() {
             ))}
           </StaggerReveal>
 
-          {/* Info */}
-          <div className="mt-8 text-center text-text-muted text-sm">
-            <p>Hasil update secara real-time</p>
+          {/* Live indicator */}
+          <div className="mt-8 flex items-center justify-center gap-2 text-text-muted text-sm">
+            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+            <span>Update real-time</span>
+            <span className="text-text-muted/50">
+              · terakhir {lastUpdate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
           </div>
         </div>
       </div>

@@ -26,8 +26,8 @@ export const authApi = {
   },
 
   // Admin login
-  adminLogin: async (data: AdminLoginRequest): Promise<ApiResponse<{ username: string }>> => {
-    const response = await apiClient.post<ApiResponse<{ username: string }>>('/auth/admin-login', data);
+  adminLogin: async (data: AdminLoginRequest): Promise<ApiResponse<{ token: string; username: string }>> => {
+    const response = await apiClient.post<ApiResponse<{ token: string; username: string }>>('/auth/admin-login', data);
     return response.data;
   },
 

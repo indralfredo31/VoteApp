@@ -4,14 +4,13 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { votingApi } from '../../api/votingApi';
 import { adminApi } from '../../api/adminApi';
-import { authApi } from '../../api/authApi';
 import { useAuthStore } from '../../store/authStore';
 import type { VotingStats } from '../../types';
 
 gsap.registerPlugin(ScrollTrigger);
 
 export default function AdminDashboard() {
-  const { logout, setAdmin } = useAuthStore();
+  const { logout } = useAuthStore();
   const navigate = useNavigate();
   const [stats, setStats] = useState<VotingStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,6 +31,10 @@ export default function AdminDashboard() {
     };
 
     loadData();
+
+    // Real-time polling: refresh stats every 3 seconds
+    const pollInterval = setInterval(loadData, 3000);
+    return () => clearInterval(pollInterval);
   }, []);
 
   useEffect(() => {
@@ -57,13 +60,51 @@ export default function AdminDashboard() {
     return () => ctx.revert();
   }, [stats]);
 
-  const handleLogout = async () => {
-    try {
-      await authApi.adminLogout();
-    } catch (e) { /* continue */ }
+  const handleLogout = () => {
     logout();
-    setAdmin(false);
     navigate('/admin/login');
+  };
+
+  const handleReset = async () => {
+    if (!confirm('Yakin ingin reset semua voting? Data vote akan dihapus.')) return;
+
+    // Check if token is still valid (not expired)
+    const stored = localStorage.getItem('voteapp-auth');
+    let tokenValid = false;
+    if (stored) {
+      try {
+        const auth = JSON.parse(stored);
+        const token = auth.state?.token;
+        if (token) {
+          const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+          if (payload.exp && payload.exp * 1000 > Date.now()) tokenValid = true;
+        }
+      } catch (_) {}
+    }
+    if (!tokenValid) {
+      alert('Sesi habis. Silakan login kembali.');
+      logout();
+      navigate('/admin/login');
+      return;
+    }
+
+    try {
+      const response = await adminApi.resetVoting();
+      if (response.success) {
+        window.location.reload();
+      } else {
+        alert(response.message || 'Gagal reset voting');
+      }
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string }; status?: number } };
+      if (err.response?.status === 401) {
+        alert('Sesi habis. Silakan login kembali.');
+        logout();
+        navigate('/admin/login');
+      } else {
+        alert('Gagal reset voting: ' + (err.response?.data?.message || (e as Error).message || 'Unknown error'));
+      }
+    }
   };
 
   if (isLoading) {
@@ -194,16 +235,7 @@ export default function AdminDashboard() {
               </Link>
 
               <button
-                onClick={async () => {
-                  if (confirm('Yakin ingin reset semua voting? Data vote akan dihapus.')) {
-                    try {
-                      await adminApi.resetVoting();
-                      window.location.reload();
-                    } catch (e) {
-                      alert('Gagal reset voting');
-                    }
-                  }
-                }}
+                onClick={handleReset}
                 className="card hover:border-error/50 transition-colors group text-left"
               >
                 <div className="flex items-center gap-4">

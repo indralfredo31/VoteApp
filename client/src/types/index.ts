@@ -1,16 +1,16 @@
 // User Types
 export interface User {
-  id: number;
+  id: string; // Firestore document ID
   nim: string;
   nama: string;
   prodi: string;
   hasVoted: boolean;
-  votedFor: number | null;
+  votedFor: string | null;
 }
 
 // Candidate (Paslon) Types
 export interface Candidate {
-  id: number;
+  id: string; // Firestore document ID
   nomor_urut: number;
   nama_ketua: string;
   prodi_ketua: string;
@@ -26,7 +26,7 @@ export interface Candidate {
 
 // Voting Result Types
 export interface VotingResult {
-  id: number;
+  id: string; // Firestore document ID
   nomor_urut: number;
   nama_ketua: string;
   nama_wakil: string;
@@ -76,7 +76,8 @@ export interface AdminLoginRequest {
 
 // Vote Types
 export interface VoteRequest {
-  candidateId: number;
+  candidateId: string;
+  userId: string;
 }
 
 // Candidate Form Types
@@ -90,4 +91,13 @@ export interface CandidateFormData {
   misi: string;
   foto_ketua?: File;
   foto_wakil?: File;
+}
+
+// Admin Voters Response
+export interface VoterRecord {
+  id: string;
+  nim: string;
+  nama: string;
+  prodi: string;
+  hasVoted: boolean;
 }

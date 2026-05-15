@@ -253,27 +253,31 @@ export default function AdminSettings() {
                   <p className="text-sm font-semibold text-text-primary">Voting Aktif</p>
                   <p className="text-xs text-text-muted mt-1">
                     {settings.voting_enabled
-                      ? 'Voting dibuka secara manual'
-                      : 'Voting ditutup secara manual'}
+                      ? 'Buka/Tutup voting secara manual — jadwal tidak aktif'
+                      : 'Gunakan jadwal otomatis — voting dibuka & ditutup sesuai jadwal'}
                   </p>
                 </div>
                 <SlideToggle
                   checked={settings.voting_enabled}
                   onChange={(v) => setSettings({ ...settings, voting_enabled: v })}
-                  labelOn="Voting Dibuka"
-                  labelOff="Voting Ditutup"
+                  labelOn="Manual"
+                  labelOff="Jadwal"
                 />
               </div>
               <p className="text-xs text-text-muted mt-3">
-                Gunakan toggle di atas untuk membuka atau menutup voting secara instan. Jadwal di bawah ini hanya berlaku saat toggle dalam posisi <strong>Aktif</strong>.
+                {settings.voting_enabled ? (
+                  <>Toggle <strong>Aktif</strong>: Voting dikontrol manual (tombol di atas). Jadwal di bawah diabaikan.</>
+                ) : (
+                  <>Toggle <strong>Nonaktif</strong>: Voting dikontrol oleh jadwal di bawah. Pastikan Tanggal Buka dan Tutup sudah diatur.</>
+                )}
               </p>
             </div>
 
             {/* Voting Schedule */}
-            <div className="card">
+            <div className={`card transition-opacity ${settings.voting_enabled ? 'opacity-50 pointer-events-none' : ''}`}>
               <h3 className="text-lg font-semibold text-text-primary mb-4">Jadwal Voting</h3>
               <p className="text-xs text-text-muted mb-4">
-                Jadwal hanya berlaku jika Voting Aktif diaktifkan. Kosongkan keduanya agar voting mengikuti jadwal saja.
+                Jadwal hanya aktif saat Kontrol Voting Nonaktif. Jika Voting Aktif, jadwal diabaikan.
               </p>
               <div className="space-y-4">
                 <DateTimeInput
@@ -313,19 +317,19 @@ export default function AdminSettings() {
 
               <div className="mt-4 space-y-2">
                 <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${settings.voting_enabled ? 'bg-primary' : 'bg-surface-light'}`} />
+                  <div className={`w-3 h-3 rounded-full ${settings.voting_enabled ? 'bg-primary' : 'bg-accent'}`} />
                   <span className="text-text-secondary text-sm">
-                    Toggle Manual: {settings.voting_enabled ? 'Aktif (dibuka)' : 'Nonaktif (ditutup)'}
+                    Kontrol: {settings.voting_enabled ? '🖐️ Manual (toggle aktif)' : '⏰ Jadwal Otomatis (toggle nonaktif)'}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${settings.voting_open_at ? 'bg-surface-light border border-text-muted' : 'bg-surface-light'}`} />
+                  <div className={`w-3 h-3 rounded-full ${settings.voting_open_at ? 'bg-primary' : 'bg-surface-light'}`} />
                   <span className="text-text-secondary text-sm">
                     Jadwal Buka: {formatLocal(settings.voting_open_at) ?? 'Tidak diatur'}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${settings.voting_close_at ? 'bg-error/60' : 'bg-surface-light'}`} />
+                  <div className={`w-3 h-3 rounded-full ${settings.voting_close_at ? 'bg-error' : 'bg-surface-light'}`} />
                   <span className="text-text-secondary text-sm">
                     Jadwal Tutup: {formatLocal(settings.voting_close_at) ?? 'Tidak diatur'}
                   </span>

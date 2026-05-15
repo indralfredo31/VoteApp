@@ -17,15 +17,21 @@ router.get('/candidates', async (req, res) => {
 
 router.post('/submit', async (req, res) => {
   try {
-    if (!req.session.user) {
-      return res.status(401).json({ success: false, message: 'Silakan login terlebih dahulu' });
-    }
-
-    const { candidateId } = req.body;
-    const user = req.session.user;
+    // Get user id from request body (stored client-side after login)
+    const { candidateId, userId } = req.body;
 
     if (!candidateId) {
       return res.status(400).json({ success: false, message: 'ID kandidat harus diisi' });
+    }
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Silakan login terlebih dahulu' });
+    }
+
+    // Look up user from Firestore by doc id
+    const user = await db.getUserById(userId);
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'User tidak ditemukan' });
     }
 
     const votingStatus = await db.isVotingOpen();
@@ -38,7 +44,7 @@ router.post('/submit', async (req, res) => {
       return res.status(400).json({ success: false, message: messages[votingStatus.reason] || 'Voting tidak tersedia' });
     }
 
-    if (user.hasVoted) {
+    if (user.has_voted === 1) {
       return res.status(400).json({ success: false, message: 'Anda sudah melakukan voting' });
     }
 
@@ -47,14 +53,11 @@ router.post('/submit', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Kandidat tidak ditemukan' });
     }
 
-    // Use Firestore document ID
+    // Use Firestore document IDs
     await db.updateUserVote(user.id, candidateId);
     await db.incrementCandidateVote(candidateId);
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
     await db.addVotingLog(user.id, candidateId, ip);
-
-    req.session.user.hasVoted = true;
-    req.session.user.votedFor = candidateId;
 
     res.json({
       success: true,
@@ -65,7 +68,7 @@ router.post('/submit', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Submit vote error:', error);
+    console.error('Submit vote error:', error.message, '| candidateId:', req.body?.candidateId, '| userId:', req.body?.userId, '| stack:', error.stack);
     res.status(500).json({ success: false, message: 'Terjadi kesalahan saat mengirim vote' });
   }
 });

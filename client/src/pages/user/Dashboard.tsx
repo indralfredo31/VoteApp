@@ -97,9 +97,17 @@ export default function Dashboard() {
     try {
       const response = await votingApi.submitVote({
         candidateId: selectedCandidate.id,
+        userId: user?.id || '', // Send Firestore doc id for auth
       });
 
       if (response.success) {
+        // Immediately fetch latest results to update vote counts on results page
+        try {
+          const resultsRes = await votingApi.getResults();
+          if (resultsRes.success && resultsRes.data) {
+            useVotingStore.getState().setResults(resultsRes.data);
+          }
+        } catch (_) {}
         navigate('/success');
       } else {
         alert(response.message || 'Gagal mengirim vote');

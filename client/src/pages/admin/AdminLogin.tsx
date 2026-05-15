@@ -9,13 +9,25 @@ export default function AdminLogin() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { setUser, setAdmin } = useAuthStore();
+  const { setUser, setAdmin, setToken } = useAuthStore();
   const navigate = useNavigate();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
+    // Redirect to dashboard if already logged in
+    const stored = localStorage.getItem('voteapp-auth');
+    if (stored) {
+      try {
+        const auth = JSON.parse(stored);
+        if (auth.state?.isAdmin && auth.state?.token) {
+          navigate('/admin');
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
     const ctx = gsap.context(() => {
       gsap.from('.admin-animate', {
         y: 30,
@@ -28,7 +40,7 @@ export default function AdminLogin() {
     }, containerRef);
 
     return () => ctx.revert();
-  }, []);
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,9 +57,12 @@ export default function AdminLogin() {
       const response = await authApi.adminLogin({ username, password });
 
       if (response.success) {
-        setAdmin(true);
-        setUser({ id: 0, nim: 'admin', nama: 'Administrator', prodi: 'Admin', hasVoted: false, votedFor: null });
-
+        // Store JWT token for API requests
+        if (response.data?.token) {
+          setToken(response.data.token);
+          setAdmin(true);
+          setUser(null); // Admin doesn't need user data
+        }
         gsap.to(containerRef.current, {
           y: -30,
           opacity: 0,

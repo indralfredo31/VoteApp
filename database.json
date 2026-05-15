@@ -105,9 +105,9 @@
       "dob": "12-08-2003",
       "nama": "Luki Hermawan",
       "prodi": "S1 Bisnis Digital",
-      "has_voted": 0,
-      "voted_at": null,
-      "voted_for": null,
+      "has_voted": 1,
+      "voted_at": "2026-05-15T05:00:06.037Z",
+      "voted_for": 2,
       "created_at": "2026-05-14T19:09:11.409Z"
     }
   ],
@@ -137,7 +137,7 @@
       "foto_wakil": null,
       "visi": "Kampus yang lebih baik dengan inovasi dan kreativitas mahasiswa untuk kemajuan bersama.",
       "misi": "1. Mengembangkan program-program inovatif\n2. Membangun kolaborasi antar himpunan\n3. Meningkatkan partisipasi mahasiswa\n4. Mendorong pembangunan infrastruktur kampus yang modern",
-      "vote_count": 3,
+      "vote_count": 4,
       "created_at": "2026-05-13T09:25:50.828Z"
     },
     {
@@ -204,11 +204,18 @@
       "candidate_id": 1,
       "voted_at": "2026-05-15T02:04:52.080Z",
       "ip_address": "::1"
+    },
+    {
+      "id": 8,
+      "user_id": 10,
+      "candidate_id": 2,
+      "voted_at": "2026-05-15T05:00:06.039Z",
+      "ip_address": "::1"
     }
   ],
   "settings": {
     "voting_open_at": "2026-05-15T02:00:00.000Z",
-    "voting_close_at": "2026-05-15T02:05:00.000Z",
+    "voting_close_at": "2026-05-16T02:05:00.000Z",
     "app_title": "Pemilihan Ketua Senat",
     "app_subtitle": "Periode 2026"
   },

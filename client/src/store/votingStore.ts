@@ -12,7 +12,7 @@ interface VotingState {
   setSelectedCandidate: (candidate: Candidate | null) => void;
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
-  updateCandidateVotes: (candidateId: number, newCount: number) => void;
+  updateCandidateVotes: (candidateId: string, newCount: number) => void;
 }
 
 export const useVotingStore = create<VotingState>((set) => ({
@@ -32,7 +32,7 @@ export const useVotingStore = create<VotingState>((set) => ({
 
   setError: (error) => set({ error }),
 
-  updateCandidateVotes: (candidateId, newCount) =>
+  updateCandidateVotes: (candidateId: string, newCount: number) =>
     set((state) => ({
       candidates: state.candidates.map((c) =>
         c.id === candidateId ? { ...c, vote_count: newCount } : c

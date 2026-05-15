@@ -6,30 +6,31 @@
 const path = require('path');
 const fs = require('fs');
 const express = require('express');
-const session = require('express-session');
 
-// Lazy load database (Firebase may not be initialized yet at cold start)
+// Lazy-load singleton app
 let _app = null;
 
-function getApp() {
+// Detect Vercel runtime
+const isVercel = !!process.env.VERCEL;
+
+function buildApp() {
   if (_app) return _app;
 
   _app = express();
   _app.set('trust proxy', 1);
+
+  // CORS headers for API responses
+  _app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'false');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (req.method === 'OPTIONS') return res.status(204).end();
+    next();
+  });
+
   _app.use(express.json());
   _app.use(express.urlencoded({ extended: true }));
-
-  _app.use(session({
-    secret: process.env.SESSION_SECRET || 'voteapp-secret-key',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: false,
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: 24 * 60 * 60 * 1000
-    }
-  }));
 
   // Uploads static
   const uploadsDir = path.join(__dirname, '../server/uploads');
@@ -61,7 +62,7 @@ function getApp() {
     });
   }
 
-  // Routes - lazy require to prevent crash at cold start
+  // Routes — lazy require to prevent crash at cold start
   try {
     const authRoutes = require('../server/routes/auth');
     const voteRoutes = require('../server/routes/vote');
@@ -76,8 +77,10 @@ function getApp() {
   // Debug endpoint
   _app.get('/api/debug', async (req, res) => {
     try {
-      const { getCache } = require('../server/config/database');
-      const cache = getCache();
+      const dbModule = require('../server/config/database');
+      let cache = dbModule.getCache();
+      // Force a cache refresh so the debug output reflects real data
+      try { await dbModule.refreshCache(); cache = dbModule.getCache(); } catch (_) {}
       res.json({
         hasCache: !!cache,
         usersCount: cache?.users?.length || 0,
@@ -110,6 +113,4 @@ function getApp() {
 }
 
 // Vercel serverless handler
-module.exports = (req, res) => {
-  return getApp()(req, res);
-};
+module.exports = (req, res) => buildApp()(req, res);

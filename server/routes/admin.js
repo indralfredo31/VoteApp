@@ -11,11 +11,11 @@ const db = require('../config/database');
 
 // ============ AUTH MIDDLEWARE ============
 
+const { requireAdmin } = require('../config/jwtAuth');
+
 function isAdmin(req, res, next) {
-  if (!req.session.admin) {
-    return res.status(401).json({ success: false, message: 'Unauthorized' });
-  }
-  next();
+  // Wrap jwtAuth middleware for backward compatibility
+  return requireAdmin(req, res, next);
 }
 
 // ============ FILE UPLOAD ============
@@ -263,12 +263,13 @@ router.get('/voters', isAdmin, async (req, res) => {
 router.delete('/voters/:id', isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    // Find user by numeric id field
+    // The id could be the Firestore doc id (string) or the numeric id field
     const users = await db.getAllUsers();
-    const user = users.find(u => u.id === parseInt(id));
+    // Try to find by Firestore doc id first, then by numeric id
+    const user = users.find(u => u.id === id || u.id === String(id) || u.id === parseInt(id));
     if (!user) return res.status(404).json({ success: false, message: 'Pemilih tidak ditemukan' });
 
-    // Delete from Firestore by doc id
+    // Delete from Firestore by doc id (Firestore document ID, not the numeric id field)
     const { getDb } = require('../config/firebase');
     const db2 = getDb();
     if (db2) await db2.collection('users').doc(user.id).delete();

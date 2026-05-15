@@ -19,6 +19,9 @@ export default function AdminVoters() {
 
   useEffect(() => {
     loadVoters();
+    // Real-time polling: refresh voters every 3 seconds
+    const pollInterval = setInterval(loadVoters, 3000);
+    return () => clearInterval(pollInterval);
   }, []);
 
   useEffect(() => {
@@ -74,7 +77,7 @@ export default function AdminVoters() {
     }
   };
 
-  const handleDelete = async (id: number, nama: string) => {
+  const handleDelete = async (id: string, nama: string) => {
     if (!confirm(`Yakin hapus "${nama}"?`)) return;
     try {
       const response = await adminApi.deleteVoter(id);

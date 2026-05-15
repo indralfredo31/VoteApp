@@ -33,7 +33,7 @@ export const adminApi = {
   },
 
   // Edit candidate
-  editCandidate: async (id: number, data: CandidateFormData): Promise<ApiResponse> => {
+  editCandidate: async (id: string, data: CandidateFormData): Promise<ApiResponse> => {
     const formData = new FormData();
     formData.append('nomor_urut', String(data.nomor_urut));
     formData.append('nama_ketua', data.nama_ketua);
@@ -52,7 +52,7 @@ export const adminApi = {
   },
 
   // Delete candidate
-  deleteCandidate: async (id: number): Promise<ApiResponse> => {
+  deleteCandidate: async (id: string): Promise<ApiResponse> => {
     const response = await apiClient.delete<ApiResponse>(`/admin/candidates/${id}`);
     return response.data;
   },
@@ -108,7 +108,7 @@ export const adminApi = {
   },
 
   // Delete voter
-  deleteVoter: async (id: number): Promise<ApiResponse> => {
+  deleteVoter: async (id: string): Promise<ApiResponse> => {
     const response = await apiClient.delete(`/admin/voters/${id}`);
     return response.data;
   },
