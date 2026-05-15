@@ -23,75 +23,82 @@ let _cache = {
 
 // Track listener state
 let _listenersInitialized = false;
+let _initPromise = null;  // single shared init promise to avoid duplicate work
 let _unsnap = () => {};
 
 // ============ REAL-TIME LISTENERS ============
 
 async function initRealtimeListeners() {
-  if (_listenersInitialized) return;
+  if (_listenersInitialized) return _initPromise;
+  if (_initPromise) return _initPromise;
 
-  const db = getDb();
-  if (!db) {
-    console.warn('⚠️ Firebase not initialized. Cannot init realtime listeners.');
-    return;
-  }
+  const initPromise = (async () => {
+    const db = getDb();
+    if (!db) {
+      console.warn('⚠️ Firebase not initialized. Cannot init realtime listeners.');
+      return;
+    }
 
-  console.log('🔥 Initializing Firestore real-time listeners...');
+    console.log('🔥 Initializing Firestore real-time listeners...');
 
-  try {
-    // Listen to users — store Firestore doc id in docId, numeric id in id
-    const usersUnsnap = db.collection(COL.USERS).onSnapshot(
-      (snap) => {
-        _cache.users = snap.docs.map(d => {
-          const data = d.data();
-          return {
-            docId: d.id,          // Firestore document ID
-            id: data.id ?? d.id,  // numeric id field (falls back to docId)
-            ...data
-          };
-        });
-        console.log(`📱 Users updated: ${_cache.users.length} total`);
-      },
-      (err) => console.error('Error listening to users:', err.message)
-    );
+    try {
+      // Listen to users — store Firestore doc id in docId, numeric id in id
+      const usersUnsnap = db.collection(COL.USERS).onSnapshot(
+        (snap) => {
+          _cache.users = snap.docs.map(d => {
+            const data = d.data();
+            return {
+              docId: d.id,          // Firestore document ID
+              id: data.id ?? d.id,  // numeric id field (falls back to docId)
+              ...data
+            };
+          });
+          console.log(`📱 Users updated: ${_cache.users.length} total`);
+        },
+        (err) => console.error('Error listening to users:', err.message)
+      );
 
-    // Listen to candidates (ordered by nomor_urut)
-    const candidatesUnsnap = db.collection(COL.CANDIDATES).orderBy('nomor_urut').onSnapshot(
-      (snap) => {
-        _cache.candidates = snap.docs.map(d => {
-          const data = d.data();
-          return {
-            docId: d.id,          // Firestore document ID
-            id: data.id ?? d.id,  // numeric id field (falls back to docId)
-            ...data
-          };
-        });
-        console.log(`📱 Candidates updated: ${_cache.candidates.length} total`);
-      },
-      (err) => console.error('Error listening to candidates:', err.message)
-    );
+      // Listen to candidates (ordered by nomor_urut)
+      const candidatesUnsnap = db.collection(COL.CANDIDATES).orderBy('nomor_urut').onSnapshot(
+        (snap) => {
+          _cache.candidates = snap.docs.map(d => {
+            const data = d.data();
+            return {
+              docId: d.id,          // Firestore document ID
+              id: data.id ?? d.id,  // numeric id field (falls back to docId)
+              ...data
+            };
+          });
+          console.log(`📱 Candidates updated: ${_cache.candidates.length} total`);
+        },
+        (err) => console.error('Error listening to candidates:', err.message)
+      );
 
-    // Listen to settings
-    const settingsUnsnap = db.collection(COL.SETTINGS).limit(1).onSnapshot(
-      (snap) => {
-        _cache.settings = snap.docs[0]?.data() || {};
-        console.log('📱 Settings updated');
-      },
-      (err) => console.error('Error listening to settings:', err.message)
-    );
+      // Listen to settings
+      const settingsUnsnap = db.collection(COL.SETTINGS).limit(1).onSnapshot(
+        (snap) => {
+          _cache.settings = snap.docs[0]?.data() || {};
+          console.log('📱 Settings updated');
+        },
+        (err) => console.error('Error listening to settings:', err.message)
+      );
 
-    // Combined cleanup function
-    _unsnap = () => {
-      usersUnsnap();
-      candidatesUnsnap();
-      settingsUnsnap();
-    };
+      // Combined cleanup function
+      _unsnap = () => {
+        usersUnsnap();
+        candidatesUnsnap();
+        settingsUnsnap();
+      };
 
-    _listenersInitialized = true;
-    console.log('✅ Firestore real-time listeners initialized');
-  } catch (e) {
-    console.error('Error initializing realtime listeners:', e.message);
-  }
+      _listenersInitialized = true;
+      console.log('✅ Firestore real-time listeners initialized');
+    } catch (e) {
+      console.error('Error initializing realtime listeners:', e.message);
+    }
+  })();
+
+  _initPromise = initPromise;
+  return initPromise;
 }
 
 // Stop all listeners (for cleanup)
@@ -102,22 +109,26 @@ function stopRealtimeListeners() {
 
 // ============ SYNC-STYLE WRAPPERS (return cached data immediately) ============
 
+async function ensureInit() {
+  await initRealtimeListeners();
+  if (_cache.candidates.length === 0 || Object.keys(_cache.settings).length === 0) {
+    await refreshCache().catch(() => {});
+  }
+}
+
 function getDatabase() {
   // Auto-init listeners on first access
   if (!_listenersInitialized) initRealtimeListeners().catch(() => {});
   return { users: _cache.users, candidates: _cache.candidates, votingLog: [], settings: _cache.settings, admin: {} };
 }
 
-function getAllCandidates() {
-  if (!_listenersInitialized) {
-    initRealtimeListeners().catch(() => {});
-    if (_cache.candidates.length === 0) refreshCache().catch(() => {});
-  }
+async function getAllCandidates() {
+  await ensureInit();
   return _cache.candidates;
 }
 
-function getCandidateById(id) {
-  if (!_listenersInitialized) initRealtimeListeners().catch(() => {});
+async function getCandidateById(id) {
+  await ensureInit();
   // Match by docId OR numeric id field OR nomor_urut
   return _cache.candidates.find(c =>
     c.docId === id || c.docId === String(id) ||
@@ -126,24 +137,19 @@ function getCandidateById(id) {
   );
 }
 
-function getUserByNim(nim) {
-  if (!_listenersInitialized) initRealtimeListeners().catch(() => {});
+async function getUserByNim(nim) {
+  await ensureInit();
   return _cache.users.find(u => u.nim === nim);
 }
 
-function getUserById(id) {
-  if (!_listenersInitialized) initRealtimeListeners().catch(() => {});
+async function getUserById(id) {
+  await ensureInit();
   // Match by docId OR numeric id field
   return _cache.users.find(u => u.docId === id || u.docId === String(id) || u.id === id || u.id === parseInt(id));
 }
 
-function getSettings() {
-  if (!_listenersInitialized) {
-    initRealtimeListeners().catch(() => {});
-    if (Object.keys(_cache.settings).length === 0) {
-      refreshCache().catch(() => {});
-    }
-  }
+async function getSettings() {
+  await ensureInit();
   return _cache.settings;
 }
 
@@ -272,6 +278,7 @@ async function getAllUsers() {
 
 // Candidate operations
 async function getCandidateByNomorUrut(nomor) {
+  await ensureInit();
   return _cache.candidates.find(c => c.nomor_urut === parseInt(nomor));
 }
 
