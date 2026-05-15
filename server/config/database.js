@@ -109,7 +109,10 @@ function getDatabase() {
 }
 
 function getAllCandidates() {
-  if (!_listenersInitialized) initRealtimeListeners().catch(() => {});
+  if (!_listenersInitialized) {
+    initRealtimeListeners().catch(() => {});
+    if (_cache.candidates.length === 0) refreshCache().catch(() => {});
+  }
   return _cache.candidates;
 }
 
