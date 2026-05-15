@@ -109,11 +109,41 @@ function stopRealtimeListeners() {
 
 // ============ SYNC-STYLE WRAPPERS (return cached data immediately) ============
 
+// Shared promise that blocks until cache is populated with Firestore data
+let _initPromise = null;
+
 async function ensureInit() {
-  await initRealtimeListeners();
-  if (_cache.candidates.length === 0 || Object.keys(_cache.settings).length === 0) {
-    await refreshCache().catch(() => {});
-  }
+  if (_initPromise) return _initPromise;
+  _initPromise = (async () => {
+    const db = getDb();
+    if (!db) return;
+
+    // Use a one-shot Firestore .get() to guarantee data is loaded on first request
+    // (real-time listeners are for keeping cache fresh after initial load)
+    try {
+      const [usersSnap, candidatesSnap, settingsSnap] = await Promise.all([
+        db.collection(COL.USERS).get(),
+        db.collection(COL.CANDIDATES).orderBy('nomor_urut').get(),
+        db.collection(COL.SETTINGS).limit(1).get()
+      ]);
+      _cache.users = usersSnap.docs.map(d => {
+        const data = d.data();
+        return { docId: d.id, id: data.id ?? d.id, ...data };
+      });
+      _cache.candidates = candidatesSnap.docs.map(d => {
+        const data = d.data();
+        return { docId: d.id, id: data.id ?? d.id, ...data };
+      });
+      _cache.settings = settingsSnap.docs[0]?.data() || {};
+      console.log(`✅ Cache loaded: users=${_cache.users.length}, candidates=${_cache.candidates.length}`);
+    } catch (e) {
+      console.error('Cache load error:', e.message);
+    }
+
+    // Start real-time listeners for future updates (non-blocking)
+    initRealtimeListeners().catch(() => {});
+  })();
+  return _initPromise;
 }
 
 function getDatabase() {
