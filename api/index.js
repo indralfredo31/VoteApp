@@ -38,22 +38,32 @@ app.use(session({
   }
 }));
 
-// Static files - uploads
+// Static files - uploads (from server/uploads)
 const uploadsDir = path.join(__dirname, '../server/uploads');
 if (!fs.existsSync(uploadsDir)) {
   try { fs.mkdirSync(uploadsDir, { recursive: true }); } catch (e) {}
 }
 app.use('/uploads', express.static(uploadsDir));
 
-// Serve frontend static files
-const clientDistDir = path.join(__dirname, '../client/dist');
-if (fs.existsSync(clientDistDir)) {
-  app.use(express.static(clientDistDir));
+// Serve frontend static files (built to api/public by Vercel build)
+const publicDir = path.join(__dirname, 'public');
+if (fs.existsSync(publicDir)) {
+  app.use(express.static(publicDir));
 }
 
 // Serve CSV template
-const templatePath = path.join(__dirname, '../client/public/template-pemilih.csv');
-if (fs.existsSync(templatePath)) {
+const templatePath = path.join(__dirname, 'public/template-pemilih.csv');
+if (!fs.existsSync(templatePath)) {
+  // Fallback to client/public if not in public
+  const clientTemplate = path.join(__dirname, '../client/public/template-pemilih.csv');
+  if (fs.existsSync(clientTemplate)) {
+    app.get('/template-pemilih.csv', (req, res) => {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="template-pemilih.csv"');
+      res.sendFile(clientTemplate);
+    });
+  }
+} else {
   app.get('/template-pemilih.csv', (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="template-pemilih.csv"');
@@ -72,9 +82,9 @@ app.get('/api/health', (req, res) => {
 });
 
 // SPA fallback - must be LAST
-if (fs.existsSync(clientDistDir)) {
+if (fs.existsSync(publicDir)) {
   app.get('*', (req, res) => {
-    res.sendFile(path.join(clientDistDir, 'index.html'));
+    res.sendFile(path.join(publicDir, 'index.html'));
   });
 }
 
