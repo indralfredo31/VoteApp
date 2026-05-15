@@ -5,105 +5,111 @@
 
 const path = require('path');
 const fs = require('fs');
+const express = require('express');
+const session = require('express-session');
 
-// Load database helpers
-const { initDatabase, getCache } = require('../server/config/database');
+// Lazy load database (Firebase may not be initialized yet at cold start)
+let _app = null;
 
-// Load all routes BEFORE declaring catch-all
-const authRoutes = require('../server/routes/auth');
-const voteRoutes = require('../server/routes/vote');
-const adminRoutes = require('../server/routes/admin');
+function getApp() {
+  if (_app) return _app;
 
-// Create Express app
-const app = express();
+  _app = express();
+  _app.set('trust proxy', 1);
+  _app.use(express.json());
+  _app.use(express.urlencoded({ extended: true }));
 
-app.set('trust proxy', 1);
+  _app.use(session({
+    secret: process.env.SESSION_SECRET || 'voteapp-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false,
+      httpOnly: true,
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000
+    }
+  }));
 
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'voteapp-secret-key',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: false,
-    httpOnly: true,
-    sameSite: 'lax',
-    maxAge: 24 * 60 * 60 * 1000
+  // Uploads static
+  const uploadsDir = path.join(__dirname, '../server/uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    try { fs.mkdirSync(uploadsDir, { recursive: true }); } catch (e) {}
   }
-}));
+  _app.use('/uploads', express.static(uploadsDir));
 
-// Static files - uploads (from server/uploads)
-const uploadsDir = path.join(__dirname, '../server/uploads');
-if (!fs.existsSync(uploadsDir)) {
-  try { fs.mkdirSync(uploadsDir, { recursive: true }); } catch (e) {}
-}
-app.use('/uploads', express.static(uploadsDir));
+  // Frontend static files
+  const publicDir = path.join(__dirname, 'public');
+  if (fs.existsSync(publicDir)) {
+    _app.use(express.static(publicDir));
+  }
 
-// Serve frontend static files (built to api/public by Vercel build)
-const publicDir = path.join(__dirname, 'public');
-if (fs.existsSync(publicDir)) {
-  app.use(express.static(publicDir));
-}
+  // CSV template
+  const templatePath = path.join(__dirname, 'public/template-pemilih.csv');
+  const clientTemplatePath = path.join(__dirname, '../client/public/template-pemilih.csv');
+  if (fs.existsSync(templatePath)) {
+    _app.get('/template-pemilih.csv', (req, res) => {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="template-pemilih.csv"');
+      res.sendFile(templatePath);
+    });
+  } else if (fs.existsSync(clientTemplatePath)) {
+    _app.get('/template-pemilih.csv', (req, res) => {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="template-pemilih.csv"');
+      res.sendFile(clientTemplatePath);
+    });
+  }
 
-// Serve CSV template
-const templatePath = path.join(__dirname, 'public/template-pemilih.csv');
-const clientTemplatePath = path.join(__dirname, '../client/public/template-pemilih.csv');
-if (fs.existsSync(templatePath)) {
-  app.get('/template-pemilih.csv', (req, res) => {
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="template-pemilih.csv"');
-    res.sendFile(templatePath);
-  });
-} else if (fs.existsSync(clientTemplatePath)) {
-  app.get('/template-pemilih.csv', (req, res) => {
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="template-pemilih.csv"');
-    res.sendFile(clientTemplatePath);
-  });
-}
-
-// API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/voting', voteRoutes);
-app.use('/api/admin', adminRoutes);
-
-// Debug endpoint - check Firebase status (MUST be before SPA catch-all)
-app.get('/api/debug', async (req, res) => {
+  // Routes - lazy require to prevent crash at cold start
   try {
-    const cache = getCache();
-    const firebaseStatus = {
-      hasCache: !!cache,
-      usersCount: cache?.users?.length || 0,
-      candidatesCount: cache?.candidates?.length || 0,
-      settings: cache?.settings || {},
-      sampleUsers: cache?.users?.slice(0, 2).map(u => ({ nim: u.nim, dob: u.dob })) || [],
-      envVars: {
-        hasProjectId: !!process.env.FIREBASE_PROJECT_ID,
-        hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY,
-        hasClientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
-        projectId: process.env.FIREBASE_PROJECT_ID || 'NOT SET'
-      }
-    };
-    res.json(firebaseStatus);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    const authRoutes = require('../server/routes/auth');
+    const voteRoutes = require('../server/routes/vote');
+    const adminRoutes = require('../server/routes/admin');
+    _app.use('/api/auth', authRoutes);
+    _app.use('/api/voting', voteRoutes);
+    _app.use('/api/admin', adminRoutes);
+  } catch (e) {
+    console.error('Route loading error:', e.message);
   }
-});
 
-// Health check (MUST be before SPA catch-all)
-app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'VoteApp is running', timestamp: new Date().toISOString() });
-});
-
-// SPA fallback - MUST be LAST (catch-all for client-side routing)
-if (fs.existsSync(publicDir)) {
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(publicDir, 'index.html'));
+  // Debug endpoint
+  _app.get('/api/debug', async (req, res) => {
+    try {
+      const { getCache } = require('../server/config/database');
+      const cache = getCache();
+      res.json({
+        hasCache: !!cache,
+        usersCount: cache?.users?.length || 0,
+        candidatesCount: cache?.candidates?.length || 0,
+        settings: cache?.settings || {},
+        envVars: {
+          hasProjectId: !!process.env.FIREBASE_PROJECT_ID,
+          projectId: process.env.FIREBASE_PROJECT_ID || 'NOT SET',
+          hasClientEmail: !!process.env.FIREBASE_CLIENT_EMAIL
+        }
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message, stack: err.stack?.slice(0, 200) });
+    }
   });
+
+  // Health check
+  _app.get('/api/health', (req, res) => {
+    res.json({ success: true, message: 'VoteApp is running', timestamp: new Date().toISOString() });
+  });
+
+  // SPA fallback
+  if (fs.existsSync(publicDir)) {
+    _app.get('*', (req, res) => {
+      res.sendFile(path.join(publicDir, 'index.html'));
+    });
+  }
+
+  return _app;
 }
 
-// Vercel serverless export
-module.exports = app;
+// Vercel serverless handler
+module.exports = (req, res) => {
+  return getApp()(req, res);
+};
