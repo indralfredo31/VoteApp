@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /Users/indralfredo -type d -name \"VoteApp\" 2>/dev/null | head -20)",
+      "Read(//Users/indralfredo/**)",
+      "Bash(curl -s -c /tmp/test-cookies.txt -X POST http://localhost:5177/api/auth/login -H 'Content-Type: application/json' -d '{\"nim\":\"123456789\",\"dob\":\"15-01-2003\"}')",
+      "Bash(curl -s -b /tmp/test-cookies.txt http://localhost:5177/api/auth/me)",
+      "Bash(curl -s -b /tmp/test-cookies.txt http://localhost:5177/api/voting/status)",
+      "Bash(curl -s -b /tmp/test-cookies.txt http://localhost:5177/api/voting/candidates)",
+      "Bash(curl -sv \"http://localhost:5177/\")",
+      "Bash(npx tsc *)"
+    ]
+  }
+}

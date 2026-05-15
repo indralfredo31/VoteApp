@@ -1,0 +1,308 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== CSS VARIABLES ===== */
+:root {
+  --color-bg: #0F1117;
+  --color-surface: #1A1D27;
+  --color-surface-light: #252836;
+  --color-primary: #2D6A4F;
+  --color-primary-light: #52B788;
+  --color-accent: #D4A574;
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #9CA3AF;
+  --color-text-muted: #6B7280;
+  --color-error: #E63946;
+}
+
+/* ===== BASE STYLES ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-light);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+/* ===== LENIS SMOOTH SCROLL ===== */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-scrolling iframe {
+  pointer-events: none;
+}
+
+/* ===== MESH GRADIENT BACKGROUND ===== */
+.mesh-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.mesh-bg::before {
+  content: '';
+  position: absolute;
+  width: 700px;
+  height: 700px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(45, 106, 79, 0.35) 0%, transparent 70%);
+  top: -15%;
+  left: -10%;
+  filter: blur(100px);
+  animation: meshOrb1 25s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.mesh-bg::after {
+  content: '';
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(212, 165, 116, 0.25) 0%, transparent 70%);
+  bottom: -10%;
+  right: -15%;
+  filter: blur(100px);
+  animation: meshOrb2 30s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.mesh-orb-3 {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(82, 183, 136, 0.15) 0%, transparent 70%);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  filter: blur(80px);
+  animation: meshOrb3 20s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes meshOrb1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(100px, 80px) scale(1.15); }
+  50% { transform: translate(60px, 160px) scale(0.9); }
+  75% { transform: translate(-60px, 80px) scale(1.08); }
+}
+
+@keyframes meshOrb2 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(-80px, 100px) rotate(120deg); }
+  66% { transform: translate(80px, -60px) rotate(240deg); }
+}
+
+@keyframes meshOrb3 {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-30%, -70%) scale(1.2); }
+}
+
+/* ===== GRAIN TEXTURE OVERLAY ===== */
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+}
+
+/* ===== MESH ORB STYLES ===== */
+.mesh-orb-1 {
+  position: absolute;
+  width: 700px;
+  height: 700px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(45, 106, 79, 0.35) 0%, transparent 70%);
+  top: -15%;
+  left: -10%;
+  filter: blur(100px);
+  animation: meshOrb1 25s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.mesh-orb-2 {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(212, 165, 116, 0.25) 0%, transparent 70%);
+  bottom: -10%;
+  right: -15%;
+  filter: blur(100px);
+  animation: meshOrb2 30s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ===== CUSTOM SCROLLBAR ===== */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-surface-light);
+  border-radius: 2px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+/* ===== TEXT REVEAL ANIMATIONS ===== */
+.reveal-line {
+  overflow: hidden;
+  display: block;
+}
+
+.reveal-char {
+  display: inline-block;
+  transform: translateY(100%);
+  opacity: 0;
+}
+
+/* ===== REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ===== FOCUS STATES ===== */
+*:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ===== BUTTON BASE ===== */
+.btn-base {
+  @apply px-6 py-3 rounded-lg font-semibold transition-all duration-300 cursor-pointer;
+  font-family: 'Inter', sans-serif;
+}
+
+.btn-primary {
+  @apply bg-primary text-white hover:bg-primary-light active:scale-95;
+}
+
+.btn-secondary {
+  @apply bg-transparent text-primary border border-primary hover:bg-primary/10 active:scale-95;
+}
+
+.btn-accent {
+  @apply bg-accent text-bg hover:bg-accent/90 active:scale-95;
+}
+
+/* ===== CARD BASE ===== */
+.card {
+  @apply bg-surface rounded-2xl p-6 border border-surface-light/30;
+}
+
+/* ===== INPUT BASE ===== */
+.input-base {
+  @apply w-full bg-surface border border-surface-light/50 rounded-xl px-4 py-3 text-text-primary placeholder-text-muted transition-all duration-300;
+}
+
+.input-base:focus {
+  @apply border-primary outline-none ring-2 ring-primary/20;
+}
+
+/* ===== PROGRESS BAR ===== */
+.progress-bar {
+  @apply h-2 bg-surface-light rounded-full overflow-hidden;
+}
+
+.progress-bar-fill {
+  @apply h-full bg-gradient-to-r from-primary to-primary-light rounded-full;
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ===== PHOTO CIRCLE ===== */
+.photo-circle {
+  @apply rounded-full border-2 border-surface-light overflow-hidden bg-surface;
+}
+
+.photo-circle img {
+  @apply w-full h-full object-cover;
+}
+
+/* ===== MODAL OVERLAY ===== */
+.modal-overlay {
+  @apply fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4;
+}
+
+/* ===== RESPONSIVE GRID ===== */
+.candidate-grid {
+  @apply grid gap-6;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .candidate-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .candidate-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

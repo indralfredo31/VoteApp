@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voting Ketua Senat Kampus</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+    <!-- SPLASH SCREEN -->
+    <div id="splash" class="screen splash-screen">
+        <div class="splash-container">
+            <div class="splash-logo">✔</div>
+            <h1 class="splash-title">Voting Senat</h1>
+            <p class="splash-subtitle">Pemilihan Ketua Senat Kampus</p>
+            <div class="loading-bar">
+                <div class="loading-bar-fill"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOGIN SCREEN -->
+    <div id="login" class="screen login-screen hidden">
+        <div class="screen-content">
+            <div class="header">
+                <h1>Masuk</h1>
+                <p>Gunakan NIM dan Tanggal Lahir Anda</p>
+            </div>
+
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <label for="nim" class="form-label">Nomor Induk Mahasiswa (NIM)</label>
+                    <input 
+                        type="text" 
+                        id="nim" 
+                        name="nim" 
+                        class="form-input" 
+                        placeholder="Contoh: 123456789"
+                        required
+                    >
+                    <span class="error-message" id="nimError"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="dob" class="form-label">Tanggal Lahir</label>
+                    <input 
+                        type="date" 
+                        id="dob" 
+                        name="dob" 
+                        class="form-input"
+                        required
+                    >
+                    <span class="error-message" id="dobError"></span>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-large">Masuk</button>
+
+                <div class="info-box">
+                    <span class="info-icon">💡</span>
+                    <div>
+                        <div class="info-title">Tips Keamanan</div>
+                        <div class="info-text">Password Anda adalah tanggal lahir dalam format DD-MM-YYYY</div>
+                    </div>
+                </div>
+
+                <div class="error-alert" id="loginError"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- VOTING DASHBOARD -->
+    <div id="voting" class="screen voting-screen hidden">
+        <div class="header">
+            <div class="header-info">
+                <h2 class="header-title" id="userGreeting">Halo, Budi</h2>
+                <p class="header-subtitle" id="votingStatus">Belum memilih</p>
+            </div>
+            <button id="logoutBtn1" class="logout-btn">Logout</button>
+        </div>
+
+        <div class="screen-content">
+            <div class="voting-section">
+                <h3 class="section-label">Pilih Calon Ketua Senat</h3>
+                <div id="candidatesList" class="candidates-list">
+                    <!-- Candidates will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONFIRMATION SCREEN -->
+    <div id="confirm" class="screen confirm-screen hidden">
+        <div class="header">
+            <h2>Konfirmasi Pilihan</h2>
+        </div>
+
+        <div class="screen-content">
+            <div class="confirm-container">
+                <div id="confirmCard" class="confirm-card">
+                    <!-- Confirmation details will be populated here -->
+                </div>
+
+                <div class="confirm-message">
+                    <strong>Apakah Anda yakin memilih kandidat ini?</strong>
+                    <p>Pilihan Anda tidak dapat diubah setelah dikonfirmasi.</p>
+                </div>
+
+                <div class="button-group">
+                    <button id="cancelBtn" class="btn btn-secondary btn-large">Kembali Pilih</button>
+                    <button id="submitVoteBtn" class="btn btn-primary btn-large">Konfirmasi Pilihan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SUCCESS SCREEN -->
+    <div id="success" class="screen success-screen hidden">
+        <div class="screen-content">
+            <div class="success-container">
+                <div class="success-icon">✓</div>
+                <h2 class="success-title">Suara Anda Tercatat!</h2>
+                <p class="success-text">
+                    Terimakasih telah berpartisipasi dalam pemilihan ketua senat kampus.
+                </p>
+
+                <div class="success-details" id="successDetails">
+                    <!-- Vote details will be populated here -->
+                </div>
+
+                <div class="button-group">
+                    <button id="viewResultsBtn" class="btn btn-primary btn-large">Lihat Hasil Sementara</button>
+                    <button id="logoutBtn2" class="btn btn-secondary btn-large">Logout</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RESULTS SCREEN -->
+    <div id="results" class="screen results-screen hidden">
+        <div class="header">
+            <h2>Hasil Voting Sementara</h2>
+        </div>
+
+        <div class="screen-content">
+            <div class="results-stats" id="resultStats">
+                <!-- Results statistics will be populated here -->
+            </div>
+
+            <div id="resultsList" class="results-list">
+                <!-- Results will be populated here -->
+            </div>
+
+            <div class="results-footer">
+                <button id="backToVotingBtn" class="btn btn-secondary btn-large" style="margin-bottom: 10px;">Kembali</button>
+                <button id="logoutBtn3" class="btn btn-primary btn-large">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS -->
+    <script src="js/app.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/voting.js"></script>
+</body>
+</html>

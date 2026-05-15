@@ -1,0 +1,404 @@
+/* ================================
+   RESPONSIVE DESIGN
+   ================================ */
+
+/* TABLET - 768px and up */
+@media (min-width: 768px) {
+  :root {
+    --font-size-base: 16px;
+  }
+
+  .header {
+    padding: var(--spacing-lg) var(--spacing-2xl);
+  }
+
+  .screen-content {
+    padding: var(--spacing-2xl);
+    max-width: 1000px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .candidates-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-lg);
+  }
+
+  .candidate-card {
+    padding: var(--spacing-lg);
+  }
+
+  .login-form {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  .confirm-card,
+  .success-text,
+  .button-group {
+    max-width: 500px;
+  }
+
+  .results-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-lg);
+  }
+}
+
+/* DESKTOP - 1024px and up */
+@media (min-width: 1024px) {
+  .screen-content {
+    padding: var(--spacing-2xl) var(--spacing-xl);
+    max-width: 1200px;
+  }
+
+  .candidates-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-lg);
+  }
+
+  .candidate-card {
+    padding: var(--spacing-lg);
+  }
+
+  .login-form {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .results-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-lg);
+  }
+}
+
+/* SMALL MOBILE - 320px to 480px */
+@media (max-width: 480px) {
+  :root {
+    --font-size-base: 14px;
+    --spacing-lg: 16px;
+  }
+
+  body {
+    height: 100vh;
+  }
+
+  .header {
+    padding: var(--spacing-md) var(--spacing-md);
+    flex-wrap: wrap;
+  }
+
+  .header h2 {
+    font-size: 16px;
+  }
+
+  .logout-btn {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  .screen-content {
+    padding: var(--spacing-md);
+  }
+
+  .splash-logo {
+    width: 100px;
+    height: 100px;
+    font-size: 50px;
+  }
+
+  .splash-title {
+    font-size: 24px;
+  }
+
+  .splash-subtitle {
+    font-size: 12px;
+  }
+
+  .login-screen .header {
+    margin-bottom: var(--spacing-lg);
+  }
+
+  .login-screen .header h1 {
+    font-size: 24px;
+  }
+
+  .login-screen .header p {
+    font-size: 12px;
+  }
+
+  .form-group {
+    margin-bottom: var(--spacing-md);
+  }
+
+  .form-input {
+    padding: var(--spacing-sm) var(--spacing-xs);
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+
+  .btn {
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-size-sm);
+  }
+
+  .btn-large {
+    padding: var(--spacing-md) var(--spacing-md);
+  }
+
+  .candidate-card {
+    padding: var(--spacing-md);
+  }
+
+  .candidate-number {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .candidate-name {
+    font-size: 14px;
+  }
+
+  .candidate-prodi {
+    font-size: 11px;
+  }
+
+  .confirm-card {
+    max-width: none;
+    padding: var(--spacing-md);
+  }
+
+  .confirm-number {
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+  }
+
+  .confirm-name {
+    font-size: 18px;
+  }
+
+  .confirm-message {
+    max-width: none;
+  }
+
+  .success-icon {
+    width: 70px;
+    height: 70px;
+    font-size: 35px;
+    margin-bottom: var(--spacing-md);
+  }
+
+  .success-title {
+    font-size: 20px;
+  }
+
+  .success-text {
+    font-size: 12px;
+    max-width: none;
+  }
+
+  .success-details {
+    max-width: none;
+  }
+
+  .candidates-list {
+    grid-template-columns: 1fr;
+  }
+
+  .results-list {
+    grid-template-columns: 1fr;
+  }
+
+  .result-card {
+    padding: var(--spacing-md);
+  }
+
+  .result-info h3 {
+    font-size: 13px;
+  }
+
+  .button-group {
+    flex-direction: column;
+    max-width: none;
+    gap: var(--spacing-sm);
+  }
+
+  .button-group .btn {
+    width: 100%;
+  }
+
+  .info-box {
+    padding: var(--spacing-sm);
+  }
+
+  .info-icon {
+    font-size: 16px;
+  }
+
+  .info-title {
+    font-size: 11px;
+  }
+
+  .info-text {
+    font-size: 11px;
+  }
+
+  .section-label {
+    font-size: 11px;
+  }
+}
+
+/* MOBILE - 481px to 768px */
+@media (min-width: 481px) and (max-width: 767px) {
+  .screen-content {
+    padding: var(--spacing-lg);
+  }
+
+  .candidates-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+
+  .candidate-card {
+    padding: var(--spacing-md);
+  }
+
+  .results-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+
+  .confirm-card {
+    max-width: 100%;
+  }
+
+  .button-group {
+    flex-direction: row;
+    gap: var(--spacing-md);
+  }
+}
+
+/* LANDSCAPE MODE */
+@media (max-height: 600px) {
+  .splash-logo {
+    width: 80px;
+    height: 80px;
+    font-size: 40px;
+    margin-bottom: var(--spacing-lg);
+  }
+
+  .splash-title {
+    font-size: 20px;
+  }
+
+  .splash-subtitle {
+    font-size: 11px;
+    margin-bottom: var(--spacing-lg);
+  }
+
+  .success-icon {
+    width: 60px;
+    height: 60px;
+    font-size: 30px;
+  }
+
+  .success-title {
+    font-size: 18px;
+    margin-bottom: var(--spacing-xs);
+  }
+
+  .success-text {
+    margin-bottom: var(--spacing-md);
+  }
+
+  .success-details {
+    margin-bottom: var(--spacing-md);
+  }
+
+  .confirm-container {
+    padding: var(--spacing-md);
+  }
+
+  .confirm-card {
+    padding: var(--spacing-md);
+  }
+
+  .confirm-message {
+    margin-bottom: var(--spacing-md);
+    padding: var(--spacing-sm);
+  }
+
+  .button-group {
+    margin-top: var(--spacing-md);
+  }
+}
+
+/* HIGH DPI SCREENS */
+@media (min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .candidate-card,
+  .confirm-card,
+  .result-card {
+    border-width: 0.5px;
+  }
+}
+
+/* DARK MODE (Optional - for future enhancement) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #1a1a2e;
+    --color-bg-secondary: #16213e;
+    --color-text: #eaeaea;
+    --color-text-light: #b0b0b0;
+    --color-border: #2e2e3e;
+  }
+
+  .header,
+  .candidate-card,
+  .confirm-card,
+  .result-card,
+  .results-stats,
+  .login-form {
+    background: #16213e;
+  }
+}
+
+/* ACCESSIBILITY - Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* FOCUS VISIBLE - Better Keyboard Navigation */
+.btn:focus-visible,
+.form-input:focus-visible,
+.logout-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* PRINT STYLES */
+@media print {
+  body,
+  .screen {
+    background: white;
+  }
+
+  .header {
+    display: none;
+  }
+
+  .screen {
+    position: static;
+    height: auto;
+  }
+}
