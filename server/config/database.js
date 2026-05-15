@@ -14,6 +14,7 @@ const COL = {
 };
 
 // In-memory cache (instant access, kept fresh by listeners)
+// IMPORTANT: store Firestore doc ID in `docId` to avoid conflict with numeric `id` field
 let _cache = {
   users: [],
   candidates: [],
@@ -38,10 +39,17 @@ async function initRealtimeListeners() {
   console.log('🔥 Initializing Firestore real-time listeners...');
 
   try {
-    // Listen to users
+    // Listen to users — store Firestore doc id in docId, numeric id in id
     const usersUnsnap = db.collection(COL.USERS).onSnapshot(
       (snap) => {
-        _cache.users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        _cache.users = snap.docs.map(d => {
+          const data = d.data();
+          return {
+            docId: d.id,          // Firestore document ID
+            id: data.id ?? d.id,  // numeric id field (falls back to docId)
+            ...data
+          };
+        });
         console.log(`📱 Users updated: ${_cache.users.length} total`);
       },
       (err) => console.error('Error listening to users:', err.message)
@@ -50,7 +58,14 @@ async function initRealtimeListeners() {
     // Listen to candidates (ordered by nomor_urut)
     const candidatesUnsnap = db.collection(COL.CANDIDATES).orderBy('nomor_urut').onSnapshot(
       (snap) => {
-        _cache.candidates = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        _cache.candidates = snap.docs.map(d => {
+          const data = d.data();
+          return {
+            docId: d.id,          // Firestore document ID
+            id: data.id ?? d.id,  // numeric id field (falls back to docId)
+            ...data
+          };
+        });
         console.log(`📱 Candidates updated: ${_cache.candidates.length} total`);
       },
       (err) => console.error('Error listening to candidates:', err.message)
@@ -100,7 +115,12 @@ function getAllCandidates() {
 
 function getCandidateById(id) {
   if (!_listenersInitialized) initRealtimeListeners().catch(() => {});
-  return _cache.candidates.find(c => c.id === id || c.id === String(id) || c.nomor_urut === parseInt(id));
+  // Match by docId OR numeric id field OR nomor_urut
+  return _cache.candidates.find(c =>
+    c.docId === id || c.docId === String(id) ||
+    c.id === id || c.id === parseInt(id) ||
+    c.nomor_urut === parseInt(id)
+  );
 }
 
 function getUserByNim(nim) {
@@ -110,7 +130,8 @@ function getUserByNim(nim) {
 
 function getUserById(id) {
   if (!_listenersInitialized) initRealtimeListeners().catch(() => {});
-  return _cache.users.find(u => u.id === id || u.id === String(id));
+  // Match by docId OR numeric id field
+  return _cache.users.find(u => u.docId === id || u.docId === String(id) || u.id === id || u.id === parseInt(id));
 }
 
 function getSettings() {
@@ -177,8 +198,14 @@ async function refreshCache() {
       db.collection(COL.SETTINGS).limit(1).get().catch(() => ({ docs: [] }))
     ]);
     _cache = {
-      users: usersSnap.docs.map(d => ({ id: d.id, ...d.data() })),
-      candidates: candidatesSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.nomor_urut || 0) - (b.nomor_urut || 0)),
+      users: usersSnap.docs.map(d => {
+        const data = d.data();
+        return { docId: d.id, id: data.id ?? d.id, ...data };
+      }),
+      candidates: candidatesSnap.docs.map(d => {
+        const data = d.data();
+        return { docId: d.id, id: data.id ?? d.id, ...data };
+      }).sort((a, b) => (a.nomor_urut || 0) - (b.nomor_urut || 0)),
       settings: settingsSnap.docs[0]?.data() || {}
     };
     console.log('✅ Cache refreshed: users=%d, candidates=%d', _cache.users.length, _cache.candidates.length);
@@ -194,47 +221,29 @@ async function createUser(userData) {
   const maxId = _cache.users.length > 0 ? Math.max(..._cache.users.map(u => typeof u.id === 'number' ? u.id : 0)) : 0;
   const user = { id: maxId + 1, nim: userData.nim, dob: userData.dob, nama: userData.nama, prodi: userData.prodi || '', has_voted: 0, voted_at: null, voted_for: null, created_at: new Date().toISOString() };
   const ref = await db.collection(COL.USERS).add(user);
+  const newUser = { docId: ref.id, id: ref.id, ...user };
   // Update cache immediately
-  _cache.users = [..._cache.users, { id: ref.id, ...user }];
-  return { id: ref.id, ...user };
+  _cache.users = [..._cache.users, newUser];
+  return newUser;
 }
 
 async function updateUserVote(userId, candidateId) {
   const db = getDb();
   if (!db) return;
 
-  // Try doc ID match first (user.id = Firestore doc id string)
-  let user = _cache.users.find(u => u.id === userId || u.id === String(userId) || u.id === parseInt(userId));
-
-  // Fallback: if not found by doc id, query Firestore directly by id/nim field
-  if (!user) {
-    const snap = await db.collection(COL.USERS)
-      .where('id', '==', userId)
-      .limit(1)
-      .get()
-      .catch(() => ({ docs: [] }));
-    if (!snap.empty) {
-      user = { id: snap.docs[0].id, ...snap.docs[0].data() };
-    } else {
-      // Try by nim as last resort
-      const nimSnap = await db.collection(COL.USERS)
-        .where('nim', '==', String(userId))
-        .limit(1)
-        .get()
-        .catch(() => ({ docs: [] }));
-      if (!nimSnap.empty) {
-        user = { id: nimSnap.docs[0].id, ...nimSnap.docs[0].data() };
-      }
-    }
-  }
+  // Find user by docId OR numeric id field
+  const user = _cache.users.find(u =>
+    u.docId === userId || u.docId === String(userId) ||
+    u.id === userId || u.id === parseInt(userId)
+  );
 
   if (!user) {
     console.warn('User not found by id:', userId);
     return;
   }
 
-  // Update by Firestore document ID directly
-  await db.collection(COL.USERS).doc(user.id).update({
+  // Update by Firestore DOCUMENT ID (docId) — never the numeric id field
+  await db.collection(COL.USERS).doc(user.docId).update({
     has_voted: 1,
     voted_at: new Date().toISOString(),
     voted_for: candidateId
@@ -286,9 +295,10 @@ async function createCandidate(candidateData) {
   };
   const ref = await db.collection(COL.CANDIDATES).doc(String(nextId));
   await ref.set(candidate);
+  const newCandidate = { docId: ref.id, id: String(nextId), ...candidate };
   // Update cache immediately
-  _cache.candidates = [..._cache.candidates, candidate].sort((a, b) => (a.nomor_urut || 0) - (b.nomor_urut || 0));
-  return { id: String(nextId), ...candidate };
+  _cache.candidates = [..._cache.candidates, newCandidate].sort((a, b) => (a.nomor_urut || 0) - (b.nomor_urut || 0));
+  return newCandidate;
 }
 
 async function updateCandidate(id, candidateData) {
@@ -300,8 +310,10 @@ async function updateCandidate(id, candidateData) {
     if (candidateData[k] != null) updates[k] = candidateData[k];
   });
   await docRef.update(updates);
-  // Update cache immediately
-  _cache.candidates = _cache.candidates.map(c => c.id === id || c.id === String(id) ? { ...c, ...updates } : c);
+  // Update cache immediately (find by docId)
+  _cache.candidates = _cache.candidates.map(c =>
+    c.docId === String(id) || c.docId === parseInt(id) ? { ...c, ...updates } : c
+  );
   const doc = await docRef.get();
   return { id: doc.id, ...doc.data() };
 }
@@ -310,44 +322,37 @@ async function deleteCandidate(id) {
   const db = getDb();
   if (!db) return;
   await db.collection(COL.CANDIDATES).doc(String(id)).delete();
-  // Update cache immediately
-  _cache.candidates = _cache.candidates.filter(c => c.id !== id && c.id !== String(id));
+  // Update cache immediately (find by docId)
+  _cache.candidates = _cache.candidates.filter(c =>
+    c.docId !== String(id) && c.docId !== parseInt(id)
+  );
 }
 
 async function incrementCandidateVote(candidateId) {
   const db = getDb();
   if (!db) return;
 
-  // Find the doc id for this candidate
+  // Find the doc id for this candidate — check docId, numeric id, and nomor_urut
   let candidate = _cache.candidates.find(c =>
-    c.id === candidateId || c.id === String(candidateId) || c.nomor_urut === parseInt(candidateId)
+    c.docId === candidateId || c.docId === String(candidateId) ||
+    c.id === candidateId || c.id === parseInt(candidateId) ||
+    c.nomor_urut === parseInt(candidateId)
   );
-
-  // Fallback: query Firestore by nomor_urut if not found in cache
-  if (!candidate) {
-    const snap = await db.collection(COL.CANDIDATES)
-      .where('nomor_urut', '==', parseInt(candidateId))
-      .limit(1)
-      .get()
-      .catch(() => ({ empty: true }));
-    if (!snap.empty) {
-      candidate = { id: snap.docs[0].id, ...snap.docs[0].data() };
-    }
-  }
 
   if (!candidate) {
     console.warn('Candidate not found:', candidateId);
     return;
   }
 
-  const docRef = db.collection(COL.CANDIDATES).doc(candidate.id);
+  // Use Firestore DOCUMENT ID (docId) — never the numeric id field
+  const docRef = db.collection(COL.CANDIDATES).doc(candidate.docId);
   const doc = await docRef.get();
   if (!doc.exists) return;
   const current = doc.data().vote_count || 0;
   await docRef.update({ vote_count: current + 1 });
   // Update cache immediately
   _cache.candidates = _cache.candidates.map(c =>
-    c.id === candidate.id ? { ...c, vote_count: current + 1 } : c
+    c.docId === candidate.docId ? { ...c, vote_count: current + 1 } : c
   );
 }
 
